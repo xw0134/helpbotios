@@ -587,6 +587,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
+            setupEventListeners();
         } catch (final Exception e) {
             HBlogger.e(TAG, "testInstallAsync 异常", e);
             updateStatusUi("状态：Install 异常: " + e.getMessage());

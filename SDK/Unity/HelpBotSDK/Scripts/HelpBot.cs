@@ -26,6 +26,12 @@ namespace HelpBot
         // 事件监听器
         private static IHelpBotEventsListener eventsListener;
 
+        // install 状态（用于 setEventsListener 排队语义对齐 Android）
+        private static bool installInProgress = false;
+        private static bool installCompleted = false;
+        private static bool hasPendingEventsListenerUpdate = false;
+        private static bool pendingEventsListenerEnabled = false;
+
         // 回调队列（用于在主线程执行回调）
         private readonly Queue<Action> callbackQueue = new Queue<Action>();
 
@@ -84,6 +90,19 @@ namespace HelpBot
 
             EnsureInstance();
 
+            // install 并发门禁：install 未明确失败前不允许重复 install
+            lock (lockObj)
+            {
+                if (installInProgress)
+                {
+                    HBLogger.W(TAG, "Install: install 正在进行中，请勿重复调用");
+                    NotifyInitFailure(callback, HelpBotErrorCode.OPERATION_IN_PROGRESS, "install 正在进行中，请勿重复调用");
+                    return;
+                }
+                installInProgress = true;
+                installCompleted = false;
+            }
+
             try
             {
                 string configJson = ConfigToJson(config);
@@ -101,6 +120,11 @@ namespace HelpBot
             catch (Exception e)
             {
                 HBLogger.E(TAG, "Install 异常", e);
+                lock (lockObj)
+                {
+                    installInProgress = false;
+                    installCompleted = false;
+                }
                 NotifyInitFailure(callback, HelpBotErrorCode.INTERNAL_ERROR, $"初始化异常: {e.Message}");
             }
         }
@@ -280,6 +304,13 @@ namespace HelpBot
 #endif
 
                 eventsListener = null;
+                lock (lockObj)
+                {
+                    installInProgress = false;
+                    installCompleted = false;
+                    hasPendingEventsListenerUpdate = false;
+                    pendingEventsListenerEnabled = false;
+                }
             }
             catch (Exception e)
             {
@@ -299,6 +330,18 @@ namespace HelpBot
             try
             {
                 HBLogger.D(TAG, $"SetEventsListener: {(listener != null ? "已设置" : "已清除")}");
+
+                // 需求对齐：必须在 install 完成后才真正下发到 Native
+                lock (lockObj)
+                {
+                    if (!installCompleted)
+                    {
+                        hasPendingEventsListenerUpdate = true;
+                        pendingEventsListenerEnabled = (listener != null);
+                        HBLogger.D(TAG, "SetEventsListener 已入队：等待 install 完成后执行");
+                        return;
+                    }
+                }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
                 AndroidSetEventsListener(listener != null);
@@ -1516,6 +1559,18 @@ namespace HelpBot
         {
             EnqueueCallback(() =>
             {
+                bool shouldApply;
+                bool enabled;
+                lock (lockObj)
+                {
+                    installInProgress = false;
+                    installCompleted = true;
+                    shouldApply = hasPendingEventsListenerUpdate;
+                    enabled = pendingEventsListenerEnabled;
+                    hasPendingEventsListenerUpdate = false;
+                    pendingEventsListenerEnabled = false;
+                }
+
                 IHelpBotInitCallback callback;
                 lock (lockObj)
                 {
@@ -1523,6 +1578,22 @@ namespace HelpBot
                     initCallbacks.Remove(callbackId);
                 }
                 callback?.OnInitSuccess();
+
+                if (shouldApply)
+                {
+                    try
+                    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                        AndroidSetEventsListener(enabled);
+#elif UNITY_IOS && !UNITY_EDITOR
+                        IOSSetEventsListener(enabled);
+#endif
+                    }
+                    catch (Exception e)
+                    {
+                        HBLogger.E(TAG, "OnInitSuccess: 应用排队的 SetEventsListener 异常", e);
+                    }
+                }
             });
         }
 
@@ -1538,6 +1609,15 @@ namespace HelpBot
 
             EnqueueCallback(() =>
             {
+                lock (lockObj)
+                {
+                    installInProgress = false;
+                    installCompleted = false;
+                    // install 失败：清空排队的 SetEventsListener
+                    hasPendingEventsListenerUpdate = false;
+                    pendingEventsListenerEnabled = false;
+                }
+
                 IHelpBotInitCallback callback;
                 lock (lockObj)
                 {

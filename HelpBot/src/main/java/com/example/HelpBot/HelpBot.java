@@ -129,6 +129,8 @@ public final class HelpBot {
     private static volatile PendingLoginRequest pendingLoginRequest;
     @Nullable
     private static volatile PendingShowConversationRequest pendingShowConversationRequest;
+    @Nullable
+    private static volatile PendingEventsListenerRequest pendingEventsListenerRequest;
 
     /**
      * 待执行的 login 请求（install 未完成时入队）。
@@ -166,6 +168,30 @@ public final class HelpBot {
         private PendingShowConversationRequest(@NonNull final Context context) {
             this.appContext = context.getApplicationContext();
             this.createdAtMs = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * 待执行的 EventsListener 设置请求（install 未完成时入队）。
+     *
+     * 设计约束：
+     * - 必须在 install 完成后才真正绑定到 EventProxy（与需求对齐）。
+     * - 只保留最后一次设置（避免宿主频繁调用导致状态错乱/内存增长）。
+     * - 允许 listener=null（表示移除监听器）。
+     */
+    private static final class PendingEventsListenerRequest {
+        @Nullable
+        final WeakReference<HelpBotEventsListener> listenerRef;
+        final long createdAtMs;
+
+        private PendingEventsListenerRequest(@Nullable final HelpBotEventsListener listener) {
+            this.listenerRef = (listener == null) ? null : new WeakReference<>(listener);
+            this.createdAtMs = System.currentTimeMillis();
+        }
+
+        @Nullable
+        private HelpBotEventsListener getListener() {
+            return (listenerRef == null) ? null : listenerRef.get();
         }
     }
 
@@ -420,6 +446,7 @@ public final class HelpBot {
         PendingLoginRequest loginToRun = null;
         PendingLoginRequest loginToCancel = null;
         PendingShowConversationRequest showToRun = null;
+        PendingEventsListenerRequest eventsListenerToApply = null;
 
         synchronized (operationLock) {
             if (success) {
@@ -440,6 +467,10 @@ public final class HelpBot {
                     && now - pendingShowConversationRequest.createdAtMs > PENDING_REQUEST_TTL_MS) {
                 pendingShowConversationRequest = null;
             }
+            if (pendingEventsListenerRequest != null
+                    && now - pendingEventsListenerRequest.createdAtMs > PENDING_REQUEST_TTL_MS) {
+                pendingEventsListenerRequest = null;
+            }
 
             if (!success) {
                 // install 失败：中止排队请求（login/showConversation）
@@ -448,12 +479,18 @@ public final class HelpBot {
                     pendingLoginRequest = null;
                 }
                 pendingShowConversationRequest = null;
+                pendingEventsListenerRequest = null;
                 loginState = LoginState.FAILED;
                 try {
                     loginConfirmed.set(false);
                 } catch (final Exception ignored) {
                 }
             } else {
+                // install 成功：优先应用排队的事件监听器（必须在 install 完成后才生效）
+                if (pendingEventsListenerRequest != null) {
+                    eventsListenerToApply = pendingEventsListenerRequest;
+                    pendingEventsListenerRequest = null;
+                }
                 // install 成功：若有排队 login，则执行（只执行一次）
                 if (pendingLoginRequest != null && loginState == LoginState.LOGIN_PENDING) {
                     loginToRun = pendingLoginRequest;
@@ -482,6 +519,15 @@ public final class HelpBot {
             return;
         }
 
+        // install 成功：先绑定事件监听器（锁外执行，避免回调重入）
+        if (eventsListenerToApply != null) {
+            try {
+                applyEventsListenerNow(eventsListenerToApply.getListener());
+            } catch (final Exception e) {
+                HBlogger.e(TAG, "install 后应用 EventsListener 异常", e);
+            }
+        }
+
         // install 成功：触发排队操作
         if (loginToRun != null) {
             submitLoginInternal(loginToRun);
@@ -495,6 +541,24 @@ public final class HelpBot {
                     HBlogger.e(TAG, "install 后执行 showConversation 异常", e);
                 }
             });
+        }
+    }
+
+    /**
+     * 立即应用事件监听器（要求：必须在 install 成功后调用）。
+     */
+    private static void applyEventsListenerNow(@Nullable final HelpBotEventsListener listener) {
+        try {
+            if (!HelpBotContext.verifyInstall()) {
+                return;
+            }
+            final HelpBotContext ctx = HelpBotContext.getInstance();
+            if (ctx == null || ctx.getEventProxy() == null) {
+                return;
+            }
+            ctx.getEventProxy().setHelpshiftEventsListener(listener);
+        } catch (final Exception e) {
+            HBlogger.e(TAG, "applyEventsListenerNow 异常", e);
         }
     }
 
@@ -1628,22 +1692,28 @@ public final class HelpBot {
      * 设置事件监听器
      */
     public static void setHelpBotEventsListener(@Nullable final HelpBotEventsListener listener) {
-        if (!HelpBotContext.verifyInstall()) {
-            HBlogger.w(TAG, "SDK 未初始化");
-            return;
+        try {
+            // 需求：像 login 一样，install 未完成时入队；只有 install 完成后才真正执行
+            synchronized (operationLock) {
+                if (installState != InstallState.INSTALLED || !HelpBotContext.isInstalled()) {
+                    pendingEventsListenerRequest = new PendingEventsListenerRequest(listener);
+                    HBlogger.d(TAG, "setHelpBotEventsListener 已入队：等待 install 完成后执行");
+                    return;
+                }
+            }
+            HBlogger.d(TAG, "setHelpBotEventsListener: " + listener);
+            applyEventsListenerNow(listener);
+        } catch (final Exception e) {
+            HBlogger.e(TAG, "setHelpBotEventsListener 异常", e);
         }
-
-        HBlogger.d(TAG, "setHelpBotEventsListener: " + listener);
-        HelpBotContext.getInstance().getEventProxy().setHelpshiftEventsListener(listener);
     }
 
     /**
      * 移除事件监听器
      */
     public static void removeHelpBotEventsListener() {
-        if (HelpBotContext.verifyInstall()) {
-            HelpBotContext.getInstance().getEventProxy().setHelpshiftEventsListener(null);
-        }
+        // 复用同一语义：install 未完成时入队，install 完成后执行移除
+        setHelpBotEventsListener(null);
     }
 
     /**
@@ -1995,6 +2065,8 @@ public final class HelpBot {
                 loginState = LoginState.NOT_LOGGED_IN;
                 pendingLoginRequest = null;
                 pendingShowConversationRequest = null;
+                pendingEventsListenerRequest = null;
+                pendingEventsListenerRequest = null;
             }
             try {
                 installInProgress.set(false);

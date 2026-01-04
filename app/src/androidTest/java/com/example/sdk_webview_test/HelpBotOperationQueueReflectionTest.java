@@ -138,6 +138,32 @@ public class HelpBotOperationQueueReflectionTest {
     }
 
     @Test
+    public void testSetEventsListenerQueuedWhenInstalling_andClearedOnInstallFailure() throws Exception {
+        setInstallState("INSTALLING");
+        setLoginState("NOT_LOGGED_IN");
+
+        HelpBot.setHelpBotEventsListener(new com.example.HelpBot.core.HelpBotEventsListener() {
+            @Override
+            public void onEventOccurred(@NonNull String eventName, java.util.Map<String, Object> data) {
+            }
+
+            @Override
+            public void onUserAuthenticationFailure(com.example.HelpBot.core.HelpBotAuthenticationFailureReason reason) {
+            }
+        });
+
+        assertNotNull("install 进行中 setHelpBotEventsListener 应入队 pendingEventsListenerRequest",
+                getStaticField(HelpBot.class, "pendingEventsListenerRequest"));
+
+        invokePrivateStaticMethod(HelpBot.class, "onInstallFinished",
+                new Class<?>[] { boolean.class, HelpBotErrorCode.class, String.class },
+                new Object[] { false, HelpBotErrorCode.NETWORK_UNAVAILABLE, "mock_fail" });
+
+        assertNull("install 失败后 pendingEventsListenerRequest 必须清空",
+                getStaticField(HelpBot.class, "pendingEventsListenerRequest"));
+    }
+
+    @Test
     public void testLoginRejectedWhenAlreadyLoggedIn() throws Exception {
         // 伪造已安装
         HelpBotContext.installCallSuccessful.set(true);

@@ -65,6 +65,11 @@ public final class HelpBot {
     private static var pendingLoginRequest: PendingLoginRequest?
     private static var pendingShowConversationRequest: PendingShowConversationRequest?
 
+    // setEventsListener 需要排队：仅在 install 完成后才绑定（与 Android 对齐）
+    private static weak var pendingEventsListener: HelpBotEventsListener?
+    private static var pendingEventsListenerCreatedAtMs: Int64 = 0
+    private static var hasPendingEventsListenerUpdate: Bool = false
+
     private init() {
         assertionFailure("HelpBot 不能被实例化")
     }
@@ -76,9 +81,20 @@ public final class HelpBot {
         HBlogger.initLoggerIfAbsent(logger)
     }
 
-    /// 设置事件监听器（可在任意时机调用，后设置会覆盖旧监听器）
+    /// 设置事件监听器（事件驱动）。
+    /// 需求对齐：必须在 install 完成后才真正绑定；install 未完成时入队（只保留最后一次）。
     public static func setEventsListener(_ listener: HelpBotEventsListener?) {
-        eventProxy.updateListener(listener)
+        operationLock.lock()
+        if installState == .installed {
+            operationLock.unlock()
+            eventProxy.updateListener(listener)
+            return
+        }
+        // install 未完成：入队
+        hasPendingEventsListenerUpdate = true
+        pendingEventsListener = listener
+        pendingEventsListenerCreatedAtMs = nowMs()
+        operationLock.unlock()
     }
 
     /// 兼容 Android 需求文档签名：channelId/domain/configMap
@@ -347,6 +363,9 @@ public final class HelpBot {
         loginConfirmed = false
         pendingLoginRequest = nil
         pendingShowConversationRequest = nil
+        hasPendingEventsListenerUpdate = false
+        pendingEventsListener = nil
+        pendingEventsListenerCreatedAtMs = 0
         operationLock.unlock()
 
         _ = keychain.remove(tokenStorageKeyJwt)
@@ -477,6 +496,9 @@ public final class HelpBot {
         loginConfirmed = false
         pendingLoginRequest = nil
         pendingShowConversationRequest = nil
+        hasPendingEventsListenerUpdate = false
+        pendingEventsListener = nil
+        pendingEventsListenerCreatedAtMs = 0
         let currentConfig = config
         config = nil
         operationLock.unlock()
@@ -614,6 +636,9 @@ public final class HelpBot {
         loginConfirmed = false
         pendingLoginRequest = nil
         pendingShowConversationRequest = nil
+        hasPendingEventsListenerUpdate = false
+        pendingEventsListener = nil
+        pendingEventsListenerCreatedAtMs = 0
         operationLock.unlock()
 
         _ = keychain.remove(tokenStorageKeyJwt)
@@ -967,10 +992,26 @@ public final class HelpBot {
     }
 
     private static func runPendingRequestsIfNeeded() {
-        // install 完成后，处理排队 login / showConversation
+        // install 完成后，处理排队 setEventsListener / login / showConversation
+        var shouldApplyEventsListener = false
+        var eventsListenerToApply: HelpBotEventsListener?
+
         var loginReq: PendingLoginRequest?
         operationLock.lock()
         let now = nowMs()
+
+        // 1) 处理排队的 eventsListener（允许 nil，表示移除）
+        if hasPendingEventsListenerUpdate {
+            if now - pendingEventsListenerCreatedAtMs <= pendingRequestTtlMs {
+                shouldApplyEventsListener = true
+                eventsListenerToApply = pendingEventsListener
+            }
+            hasPendingEventsListenerUpdate = false
+            pendingEventsListener = nil
+            pendingEventsListenerCreatedAtMs = 0
+        }
+
+        // 2) 处理排队的 login
         if let p = pendingLoginRequest, now - p.createdAtMs <= pendingRequestTtlMs {
             loginReq = p
             pendingLoginRequest = nil
@@ -982,6 +1023,10 @@ public final class HelpBot {
             }
         }
         operationLock.unlock()
+
+        if shouldApplyEventsListener {
+            eventProxy.updateListener(eventsListenerToApply)
+        }
 
         if let req = loginReq {
             login(req.token, completion: req.completion)
