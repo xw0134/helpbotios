@@ -144,7 +144,7 @@ public final class HelpBotContext {
      初始化组件
      */
     public func initialiseComponents() {
-        HBlogger.d(tag, "初始化 SDK 组件")
+        HBlogger.d(Self.tag, "初始化 SDK 组件")
         // 这里可以初始化其他组件
     }
 }

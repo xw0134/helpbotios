@@ -3,7 +3,7 @@ import Foundation
 /**
  事件代理：将 Web 侧事件透传给宿主（事件驱动）。
  */
-final class EventProxy {
+public final class EventProxy {
     private weak var listener: HelpBotEventsListener?
     private let mainQueue = DispatchQueue.main
 

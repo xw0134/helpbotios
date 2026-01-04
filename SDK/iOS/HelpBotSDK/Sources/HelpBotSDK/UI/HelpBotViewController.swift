@@ -29,7 +29,12 @@ final class HelpBotViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .systemBackground
+        // iOS 12 兼容：systemBackground 为 iOS 13+
+        if #available(iOS 13.0, *) {
+            view.backgroundColor = .systemBackground
+        } else {
+            view.backgroundColor = .white
+        }
         containerView.frame = view.bounds
         containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(containerView)

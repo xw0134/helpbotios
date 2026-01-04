@@ -1071,6 +1071,7 @@ extension HelpBotWebViewSession: WKUIDelegate {
     }
 
     // 文件选择：支持 Web 侧 file input（可选）
+    @available(iOS 14.0, *)
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         // 安全性：仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发。

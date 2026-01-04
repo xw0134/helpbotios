@@ -47,7 +47,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putString(_ key: String, _ value: String) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putString: key 不能为空")
+            HBlogger.w(Self.tag, "putString: key 不能为空")
             return false
         }
         userDefaults.set(value, forKey: key)
@@ -83,7 +83,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putInt(_ key: String, _ value: Int) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putInt: key 不能为空")
+            HBlogger.w(Self.tag, "putInt: key 不能为空")
             return false
         }
         userDefaults.set(value, forKey: key)
@@ -121,7 +121,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putBool(_ key: String, _ value: Bool) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putBool: key 不能为空")
+            HBlogger.w(Self.tag, "putBool: key 不能为空")
             return false
         }
         userDefaults.set(value, forKey: key)
@@ -159,7 +159,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putDouble(_ key: String, _ value: Double) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putDouble: key 不能为空")
+            HBlogger.w(Self.tag, "putDouble: key 不能为空")
             return false
         }
         userDefaults.set(value, forKey: key)
@@ -197,7 +197,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putData(_ key: String, _ value: Data) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putData: key 不能为空")
+            HBlogger.w(Self.tag, "putData: key 不能为空")
             return false
         }
         userDefaults.set(value, forKey: key)
@@ -230,7 +230,7 @@ public final class HBPersistentStorage {
     @discardableResult
     public func putObject<T: Codable>(_ key: String, _ value: T) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putObject: key 不能为空")
+            HBlogger.w(Self.tag, "putObject: key 不能为空")
             return false
         }
         do {
@@ -238,7 +238,7 @@ public final class HBPersistentStorage {
             userDefaults.set(data, forKey: key)
             return true
         } catch {
-            HBlogger.e(tag, "putObject 编码失败: \(error.localizedDescription)")
+            HBlogger.e(Self.tag, "putObject 编码失败: \(error.localizedDescription)")
             return false
         }
     }
@@ -261,7 +261,7 @@ public final class HBPersistentStorage {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
-            HBlogger.e(tag, "getObject 解码失败: \(error.localizedDescription)")
+            HBlogger.e(Self.tag, "getObject 解码失败: \(error.localizedDescription)")
             return nil
         }
     }

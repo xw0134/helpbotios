@@ -43,11 +43,11 @@ public final class EncryptedStorage {
     @discardableResult
     public func putString(_ key: String, _ value: String) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putString: key 不能为空")
+            HBlogger.w(Self.tag, "putString: key 不能为空")
             return false
         }
         guard let data = value.data(using: .utf8) else {
-            HBlogger.e(tag, "putString: 字符串转 Data 失败")
+            HBlogger.e(Self.tag, "putString: 字符串转 Data 失败")
             return false
         }
         return putData(key, data)
@@ -79,7 +79,7 @@ public final class EncryptedStorage {
     @discardableResult
     public func putData(_ key: String, _ value: Data) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putData: key 不能为空")
+            HBlogger.w(Self.tag, "putData: key 不能为空")
             return false
         }
         
@@ -105,7 +105,7 @@ public final class EncryptedStorage {
         if status == errSecSuccess {
             return true
         } else {
-            HBlogger.e(tag, "putData 失败: \(status)")
+            HBlogger.e(Self.tag, "putData 失败: \(status)")
             return false
         }
     }
@@ -139,7 +139,7 @@ public final class EncryptedStorage {
         if status == errSecSuccess {
             return result as? Data
         } else if status != errSecItemNotFound {
-            HBlogger.d(tag, "getData: \(status)")
+            HBlogger.d(Self.tag, "getData: \(status)")
         }
         return nil
     }
@@ -157,14 +157,14 @@ public final class EncryptedStorage {
     @discardableResult
     public func putObject<T: Codable>(_ key: String, _ value: T) -> Bool {
         guard !Utils.isEmpty(key) else {
-            HBlogger.w(tag, "putObject: key 不能为空")
+            HBlogger.w(Self.tag, "putObject: key 不能为空")
             return false
         }
         do {
             let data = try JSONEncoder().encode(value)
             return putData(key, data)
         } catch {
-            HBlogger.e(tag, "putObject 编码失败: \(error.localizedDescription)")
+            HBlogger.e(Self.tag, "putObject 编码失败: \(error.localizedDescription)")
             return false
         }
     }
@@ -184,7 +184,7 @@ public final class EncryptedStorage {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
-            HBlogger.e(tag, "getObject 解码失败: \(error.localizedDescription)")
+            HBlogger.e(Self.tag, "getObject 解码失败: \(error.localizedDescription)")
             return nil
         }
     }
