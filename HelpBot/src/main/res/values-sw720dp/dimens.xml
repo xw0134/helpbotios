@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--  10寸平板尺寸配置 (sw720dp) -->
+    <dimen name="helpbot_toolbar_height">72dp</dimen>
+    <dimen name="helpbot_webview_padding">24dp</dimen>
+    <dimen name="helpbot_max_width">1024dp</dimen>
+</resources>

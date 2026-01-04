@@ -1,0 +1,34 @@
+name: HelpBotDemo
+options:
+  deploymentTarget:
+    iOS: "13.0"
+
+packages:
+  HelpBotSDK:
+    path: ../HelpBotSDK
+
+targets:
+  HelpBotDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Supporting/Info.plist
+      properties:
+        CFBundleDisplayName: HelpBotDemo
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.helpbot.demo
+        DEVELOPMENT_TEAM: ""
+    dependencies:
+      - package: HelpBotSDK
+
+

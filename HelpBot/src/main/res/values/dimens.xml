@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--  默认尺寸配置 (手机) -->
+    <dimen name="helpbot_toolbar_height">56dp</dimen>
+    <dimen name="helpbot_webview_padding">0dp</dimen>
+    <!--
+        说明：
+        - ConstraintLayout 的 layout_constraintWidth_max 不建议使用负值（可能导致约束不稳定/不可预期）
+        - 手机端默认不限制最大宽度，因此这里设置为一个“足够大”的值，相当于不生效
+     -->
+    <dimen name="helpbot_max_width">10000dp</dimen>
+</resources>

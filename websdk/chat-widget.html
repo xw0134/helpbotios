@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<!-- saved from url=(0058)https://dev-bot-server.yuedongcs.com:8443/chat-widget.html -->
+<html lang="zh-CN">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpBot 聊天窗口</title>
+    <script src="./js/vue.global.js.下载"></script>
+    <link href="./css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #ebe8f0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Helpshift 风格的头部 */
+        .chat-header {
+            background: #6c5ce7;
+            color: white;
+            padding: 12px 16px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+        }
+
+        /* SDK 模式下隐藏头部 */
+        .chat-header.hidden {
+            display: none;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-icon {
+            width: 28px;
+            height: 28px;
+            background: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.9;
+            transition: opacity 0.2s;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #ebe8f0;
+        }
+
+        /* 日期分隔符 */
+        .date-divider {
+            text-align: center;
+            margin: 12px auto;
+            padding: 6px 16px;
+            background: #d1d1d1;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #666;
+            display: inline-block;
+            width: fit-content;
+            max-width: 90%;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* Helpshift 风格的消息 */
+        .message {
+            margin-bottom: 16px;
+            position: relative;
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #d1d1d1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 20px;
+        }
+
+        .message-avatar i {
+            color: #888;
+            font-size: 16px;
+        }
+
+        .message-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-header {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .message-sender {
+            font-weight: 500;
+        }
+
+        .message-time {
+            color: #999;
+        }
+
+        .message-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 4px;
+        }
+
+        .message-time-badge {
+            font-size: 10px;
+            color: #999;
+        }
+
+        .message-content {
+            padding: 10px 14px;
+            border-radius: 12px;
+            line-height: 1.5;
+            font-size: 14px;
+            white-space: pre-line;
+            word-wrap: break-word;
+            width: fit-content;
+            max-width: 280px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message.user .message-body {
+            align-items: flex-end;
+        }
+
+        .message.user .message-content {
+            background: #6c5ce7;
+            color: white;
+            border-radius: 12px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.user .message-header {
+            justify-content: flex-end;
+        }
+
+        .message.user .message-avatar {
+            display: none;
+        }
+
+        .message.customer-service .message-content {
+            background: white;
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            border-top-left-radius: 4px;
+        }
+
+        .message.system-info,
+        .message.system-error {
+            text-align: center;
+            font-size: 12px;
+            margin: 10px auto;
+        }
+
+        .message.system-info .message-content {
+            background: #fff3cd;
+            color: #856404;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+
+        .message.system-error .message-content {
+            background: #f8d7da;
+            color: #721c24;
+            max-width: 90%;
+            margin: 0 auto;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 3px;
+            margin-right: 8px;
+        }
+
+        .loading-dots span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #6c757d;
+            animation: loading 1.4s infinite ease-in-out;
+        }
+
+        .loading-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes loading {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* 加载更多历史消息指示器 */
+        .loading-more-indicator {
+            text-align: center;
+            padding: 16px;
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin: 8px 16px;
+        }
+
+        /* 连接中的 Loading 状态 */
+        .connection-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 16px;
+            margin-top: 32px;
+        }
+
+        .loading-spinner {
+            font-size: 40px;
+            color: #6c5ce7;
+            margin-bottom: 16px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* 图片消息样式 */
+        .image-message {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .message-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .message-image:hover {
+            transform: scale(1.02);
+        }
+
+        .image-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .image-name {
+            font-weight: 500;
+        }
+
+        .image-size {
+            font-size: 11px;
+        }
+
+        /* Helpshift 风格的输入区 */
+        .chat-input {
+            padding: 12px 16px 8px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .powered-by {
+            text-align: center;
+            font-size: 10px;
+            color: #999;
+            padding: 4px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .chat-input input[type="text"] {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            padding: 10px 16px;
+            outline: none;
+            font-size: 14px;
+            background: #f5f5f5;
+        }
+
+        .chat-input input[type="text"]:focus {
+            border-color: #6c5ce7;
+            background: white;
+        }
+
+        .chat-input input[type="text"]::placeholder {
+            color: #999;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+        }
+
+        .file-preview {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-preview .file-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .file-preview .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-preview .file-size {
+            font-size: 11px;
+        }
+
+        .file-preview .upload-status {
+            font-size: 11px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .file-preview .remove-file {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 2px;
+        }
+
+        .file-preview .remove-file:hover {
+            background: #dc3545;
+            color: white;
+        }
+
+        .upload-progress {
+            width: 100%;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .upload-progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .emoji-btn,
+        .send-btn {
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .emoji-btn {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .emoji-btn:hover {
+            background: #e8e8e8;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #5f50d6;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 问题选项区域 */
+        .problem-section {
+            padding: 16px;
+        }
+
+        .problem-title {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .problem-list {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .problem-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+
+        .problem-item:last-child {
+            border-bottom: none;
+        }
+
+        .problem-item:hover {
+            background: #f9f9f9;
+        }
+
+        .problem-item-text {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .problem-item-arrow {
+            color: #ccc;
+            font-size: 16px;
+        }
+
+        /* 开启对话按钮 */
+        .start-conversation-btn-container {
+            margin-top: 20px;
+            padding: 0 16px 16px 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .start-conversation-btn {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 12px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+        }
+
+        .start-conversation-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(108, 92, 231, 0.4);
+        }
+
+        .start-conversation-btn:active {
+            transform: translateY(0);
+        }
+
+        .start-conversation-btn i {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" data-v-app=""><!-- 聊天头部：SDK 模式下自动隐藏，支持自定义标题 -->
+        <div class="chat-header">
+            <div class="header-left">
+                <div class="header-icon"><i class="fas fa-headset" style="color: rgb(108, 92, 231);"></i></div>
+                <div>
+                    <!-- <div class="header-title">{{ headerTitle }}</div> --><!-- <div class="header-subtitle">{{ headerSubtitle }}</div> -->
+                </div>
+            </div>
+        </div>
+        <div class="chat-messages"><!-- 加载历史消息指示器 --><!--v-if--><!-- 日期分隔符 -->
+            <div class="date-divider">Thursday, December 11, 2025</div><!-- 连接中的 Loading 状态 -->
+            <div class="connection-loading">
+                <div class="loading-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                <div class="loading-text">正在连接客服...</div>
+            </div>
+            <!-- 引导界面（当 status 为 3 或 4 时显示） --><!--v-if--><!-- 问题选项区域（正常情况） --><!--v-if--><!-- 消息列表 --><!-- 正在输入指示器 --><!--v-if-->
+        </div>
+        <div class="chat-input"><!-- 文件上传状态区 --><!--v-if--><!-- 输入行 -->
+            <div class="input-row"><input type="text" placeholder="Or enter your message"
+                    disabled=""><!-- 文件上传隐藏输入 --><input type="file" class="file-input"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" disabled=""
+                    style="display: none;"><!-- Emoji按钮 --><button class="emoji-btn" disabled=""><i
+                        class="fas fa-paperclip"></i></button><!-- 发送按钮 --><button class="send-btn" disabled=""><i
+                        class="fas fa-paper-plane"></i></button></div><!-- Powered by -->
+            <div class="powered-by">POWERED BY HELPBOT</div>
+        </div>
+    </div>
+
+    <!-- HelpBot 通信桥接（使用父窗口的 SDK，不重复初始化） -->
+    <script>
+        (function () {
+            var isInIframe = window.self !== window.top;
+
+            if (!isInIframe) {
+                console.warn('chat-widget.html 应该在 iframe 中运行');
+            }
+
+            // 检查是否可以直接访问父窗口的 HelpBot（同源）
+            try {
+                if (window.parent.HelpBot && typeof window.parent.HelpBot === 'function') {
+                    console.log('✅ chat-widget.html: 使用父窗口的 HelpBot（同源）');
+                    window.HelpBot = window.parent.HelpBot;
+                    return; // 直接使用父窗口的 HelpBot
+                }
+            } catch (e) {
+                console.log('⚠️ chat-widget.html: 无法直接访问父窗口（跨域），将使用 postMessage 通信');
+            }
+
+            // 如果无法直接访问（跨域），创建 postMessage 桥接
+            var eventListeners = {};
+            var messageId = 0;
+            var pendingCallbacks = {};
+
+            // 创建 HelpBot 函数（通过 postMessage 与父窗口通信）
+            window.HelpBot = function (command, ...args) {
+                switch (command) {
+                    case 'sendMessage':
+                        return sendToParent('sendMessage', args[0]);
+                    case 'uploadFile':
+                        return sendToParent('uploadFile', args[0]);
+                    case 'sendFileMessage':
+                        return sendToParent('sendFileMessage', args[0]);
+                    case 'getStatus':
+                        return sendToParent('getStatus');
+                    case 'getHistoryMessages':
+                        return sendToParent('getHistoryMessages');
+                    case 'loadMoreMessages':
+                        return sendToParent('loadMoreMessages', { limit: args[0], offset: args[1] });
+                    case 'on':
+                        var eventType = args[0];
+                        var callback = args[1];
+                        if (!eventListeners[eventType]) {
+                            eventListeners[eventType] = [];
+                        }
+                        eventListeners[eventType].push(callback);
+                        // 告诉父窗口需要监听这个事件
+                        sendToParent('on', eventType);
+                        break;
+                    case 'off':
+                        var eventType = args[0];
+                        var callback = args[1];
+                        if (eventListeners[eventType] && callback) {
+                            var index = eventListeners[eventType].indexOf(callback);
+                            if (index > -1) {
+                                eventListeners[eventType].splice(index, 1);
+                            }
+                        }
+                        break;
+                    default:
+                        console.warn('未知的 HelpBot 命令:', command);
+                }
+            };
+
+            // 发送消息到父窗口
+            function sendToParent(command, data) {
+                return new Promise(function (resolve, reject) {
+                    var id = ++messageId;
+                    pendingCallbacks[id] = { resolve: resolve, reject: reject };
+
+                    window.parent.postMessage({
+                        type: 'helpbot-command',
+                        id: id,
+                        command: command,
+                        data: data
+                    }, '*');
+
+                    // 超时处理
+                    setTimeout(function () {
+                        if (pendingCallbacks[id]) {
+                            delete pendingCallbacks[id];
+                            reject(new Error('请求超时'));
+                        }
+                    }, 30000);
+                });
+            }
+
+            // 接收父窗口的消息
+            window.addEventListener('message', function (event) {
+                var message = event.data;
+
+                // 处理命令响应
+                if (message.type === 'helpbot-response' && message.id) {
+                    var callback = pendingCallbacks[message.id];
+                    if (callback) {
+                        delete pendingCallbacks[message.id];
+                        if (message.error) {
+                            callback.reject(new Error(message.error));
+                        } else {
+                            callback.resolve(message.result);
+                        }
+                    }
+                }
+
+                // 处理事件推送
+                if (message.type === 'helpbot-event' && message.eventType) {
+                    var listeners = eventListeners[message.eventType] || [];
+                    listeners.forEach(function (callback) {
+                        try {
+                            callback(message.data || {});
+                        } catch (error) {
+                            console.error('事件监听器错误:', error);
+                        }
+                    });
+                }
+            });
+
+            console.log('✅ chat-widget.html: postMessage 桥接已就绪');
+        })();
+    </script>
+
+    <!-- Vue 应用 -->
+    <script>
+        const { createApp } = Vue;
+
+        // ========== 在 Vue 应用创建前读取配置 ==========
+        // 这样可以避免时机问题，确保配置在 Vue 挂载时已经准备好
+        let parentConfig = null;
+        let initialShowHeader = true;
+        // let initialHeaderTitle = 'Demo';  // 已删除默认值
+        // let initialHeaderSubtitle = 'Support Team';  // 已删除默认值
+
+        try {
+            // 尝试读取父窗口配置
+            if (window.parent && window.parent !== window) {
+                // setTimeout(() => {
+                parentConfig = window.parent.HelpBotConfig;
+
+                if (parentConfig) {
+                    console.log('[chat-widget] 成功读取父窗口配置:', parentConfig);
+
+                    // 检测是否需要隐藏标题（SDK 模式）
+                    if (parentConfig.hideBubble === true || parentConfig.fullscreen === true) {
+                        initialShowHeader = false;
+                        console.log('[chat-widget] SDK 模式检测：隐藏标题框');
+                    }
+
+                    // 读取自定义标题（如果配置了）- 已屏蔽
+                    // if (parentConfig.headerTitle) {
+                    //     initialHeaderTitle = parentConfig.headerTitle;
+                    //     console.log('[chat-widget] 使用自定义标题:', initialHeaderTitle);
+                    // }
+                    // if (parentConfig.headerSubtitle) {
+                    //     initialHeaderSubtitle = parentConfig.headerSubtitle;
+                    //     console.log('[chat-widget] 使用自定义副标题:', initialHeaderSubtitle);
+                    // }
+                } else {
+                    console.log('[chat-widget] 父窗口无 HelpBotConfig 配置');
+                }
+                // })
+
+            } else {
+                console.log('[chat-widget] 不在 iframe 中或无父窗口');
+            }
+        } catch (e) {
+            // 跨域情况下无法访问父窗口配置
+            console.log('[chat-widget] 无法访问父窗口配置（可能跨域）:', e.message);
+        }
+
+        createApp({
+            data() {
+                return {
+                    messages: [],
+                    newMessage: '',
+                    isTyping: false,
+                    messageId: 1,
+                    isConnected: false,
+                    isLoading: false,
+                    selectedFile: null,
+                    isUploading: false,
+                    uploadProgress: 0,
+                    currentIssueId: null,
+                    hasMoreMessages: false,
+                    messageOffset: 0,
+                    isLoadingMore: false,
+                    needsNewIssue: false,  // 是否需要创建新会话（status 为 3 或 4）
+                    issueStatus: null,      // Issue 状态
+                    isIssueClosed: false,   // Issue 是否已关闭（在聊天过程中被客服 resolve/reject）
+                    typingTimer: null,      // "正在输入"提示的超时定时器
+                    showHeader: initialShowHeader           // 是否显示头部（从配置读取）
+                    // headerTitle: initialHeaderTitle,         // 标题文本（支持自定义）- 已屏蔽
+                    // headerSubtitle: initialHeaderSubtitle    // 副标题文本（支持自定义）- 已屏蔽
+                }
+            },
+            methods: {
+                // 处理 HelpBot 就绪事件
+                async onHelpBotReady(data) {
+                    this.isConnected = true;
+
+                    // 检查是否需要创建新会话
+                    if (data.needsNewIssue) {
+                        this.needsNewIssue = true;
+                        this.issueStatus = data.issueStatus;
+
+                        // 等待 Vue 完成 DOM 更新后再滚动
+                        await this.$nextTick();
+                        setTimeout(() => {
+                            this.scrollToBottom();
+                        }, 100);
+                        return; // 显示引导界面，不加载历史消息
+                    }
+
+                    // 加载历史消息
+                    await this.loadHistoryMessages();
+
+                    // 等待 Vue 完成 DOM 更新
+                    await this.$nextTick();
+
+                    // 等待图片加载完成后再滚动
+                    this.scrollAfterImagesLoaded();
+                },
+
+                // 处理实时消息
+                onHelpBotMessage(data) {
+                    const message = data.message;
+
+                    // 检查 issue 状态变更
+                    this.checkIssueStatusChange(message);
+
+                    if (message.type === 'message.new' && message.data) {
+                        const isUser = !message.data.is_staff;
+                        const messageType = message.data.type;
+
+                        // 只显示客服消息，避免重复显示用户自己的消息
+                        if (!isUser) {
+                            // 清除"正在输入"的超时定时器
+                            if (this.typingTimer) {
+                                clearTimeout(this.typingTimer);
+                                this.typingTimer = null;
+                            }
+
+                            // 处理文件/图片消息 (type: 3)
+                            if (messageType === 3 && message.data.body && typeof message.data.body === 'object') {
+                                const fileInfo = message.data.body;
+
+                                // 检查是否是图片
+                                if (fileInfo.file_content_type && fileInfo.file_content_type.startsWith('image/') && fileInfo.file_url) {
+                                    this.addImageMessage(
+                                        fileInfo.file_url,
+                                        fileInfo.file_name || '图片',
+                                        fileInfo.file_size || 0,
+                                        'customer-service'
+                                    );
+                                } else {
+                                    const fileText = `📎 文件: ${fileInfo.file_name || '未知文件'}\n大小: ${this.formatFileSize(fileInfo.file_size || 0)}\n类型: ${fileInfo.file_content_type || '未知'}`;
+                                    this.addMessage(fileText, 'customer-service');
+                                }
+                                this.isTyping = false;
+                            } else {
+                                // 处理文本消息
+                                let content = '';
+                                if (typeof message.data.body === 'string') {
+                                    content = message.data.body;
+                                } else if (message.data.body && typeof message.data.body === 'object') {
+                                    content = message.data.body.body || '';
+                                }
+
+                                if (content) {
+                                    content = content.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+                                    this.addMessage(content, 'customer-service');
+                                    this.isTyping = false;
+                                }
+                            }
+                        }
+                    }
+                },
+
+                // 检查 issue 状态变更
+                checkIssueStatusChange(message) {
+                    // 如果已经关闭，不再重复检查
+                    if (this.isIssueClosed) return;
+
+                    // 检查专门的 issue 状态变更事件
+                    // 根据实际 SSE 消息格式，检查 event 类型
+                    let newStatus = null;
+
+                    // 检查是否是 issue.status 或其他状态变更事件
+                    if (message.type === 'issue.status' || message.type === 'issue.update' || message.type === 'issue.status_changed' || message.type === 'issue.resolved' || message.type === 'issue.rejected') {
+                        if (message.data && message.data.status !== undefined) {
+                            newStatus = message.data.status;
+                        }
+                        // 或者根据事件类型直接判断
+                        else if (message.type === 'issue.resolved') {
+                            newStatus = 3;
+                        } else if (message.type === 'issue.rejected') {
+                            newStatus = 4;
+                        }
+                    }
+
+                    // 如果检测到状态变更为 resolved(3) 或 rejected(4)
+                    if (newStatus === 3 || newStatus === 4) {
+                        this.handleIssueClosed(newStatus);
+                    }
+                },
+
+                // 处理 issue 被关闭的情况
+                handleIssueClosed(status) {
+                    if (this.isIssueClosed) return; // 避免重复处理
+
+                    this.isIssueClosed = true;
+                    this.issueStatus = status;
+
+                    // 显示系统提示消息
+                    const statusText = status === 3 ? '已解决' : '已关闭';
+                    this.addMessage(
+                        `本次会话${statusText}，如需继续咨询请开启新的对话。`,
+                        'system-info'
+                    );
+
+                    // 清空输入框
+                    this.newMessage = '';
+                },
+
+                // 处理错误
+                onHelpBotError(data) {
+                    console.error('HelpBot 错误:', data.error);
+
+                    // 检查是否是 issue 已关闭的错误
+                    const errorCode = data.error?.code;
+                    const errorMessage = data.error?.message || '';
+
+                    if (errorCode === 'ISSUE_CLOSED' || errorCode === 'ISSUE_RESOLVED' ||
+                        errorMessage.includes('已关闭') || errorMessage.includes('已解决') ||
+                        errorMessage.includes('closed') || errorMessage.includes('resolved')) {
+                        // 触发 issue 关闭处理
+                        this.handleIssueClosed(3); // 假设是已解决状态
+                    } else {
+                        // 显示其他错误
+                        this.addMessage(`❌ 错误: ${errorMessage}`, 'system-error');
+                    }
+
+                    // 清除"正在输入"提示和定时器
+                    if (this.typingTimer) {
+                        clearTimeout(this.typingTimer);
+                        this.typingTimer = null;
+                    }
+                    this.isTyping = false;
+                    this.isLoading = false;
+                },
+
+                // 发送消息
+                async sendMessage() {
+                    const message = this.newMessage.trim();
+                    if (!message) return;
+
+                    // 检查 issue 是否已关闭
+                    if (this.isIssueClosed) {
+                        this.addMessage('⚠️ 当前会话已结束，无法发送消息。', 'system-info');
+                        return;
+                    }
+
+                    this.newMessage = '';
+                    this.addMessage(message, 'user');
+                    this.isLoading = true;
+                    // 移除自动显示"正在输入"：this.isTyping = true;
+
+                    HelpBot('sendMessage', message);
+                },
+
+                // 加载历史消息
+                async loadHistoryMessages() {
+                    try {
+                        const historyDataResult = HelpBot('getHistoryMessages');
+
+                        // 兼容同步和异步两种情况
+                        const historyData = historyDataResult && typeof historyDataResult.then === 'function'
+                            ? await historyDataResult  // Promise（跨域情况）
+                            : historyDataResult;       // 对象（同源情况）
+
+                        // ✅ 检查issue状态：如果已关闭（status 3或4），禁用输入框
+                        if (historyData && (historyData.status === 3 || historyData.status === 4)) {
+                            console.log('[chat-widget] 历史issue已关闭，状态:', historyData.status);
+                            this.handleIssueClosed(historyData.status);
+                            return; // 不加载历史消息，显示提示
+                        }
+
+                        // 检查数据结构
+                        let historyMessages;
+                        let hasMore;
+                        let issueId;
+
+                        if (Array.isArray(historyData)) {
+                            // 旧格式：直接是数组
+                            historyMessages = historyData;
+                            hasMore = false;
+                            issueId = null;
+                        } else if (historyData && typeof historyData === 'object') {
+                            // 新格式：对象 {messages: [], hasMore: bool, issueId: string, status: number}
+                            historyMessages = historyData.messages || [];
+                            hasMore = historyData.hasMore || false;
+                            issueId = historyData.issueId || null;
+                        } else {
+                            historyMessages = [];
+                            hasMore = false;
+                            issueId = null;
+                        }
+
+                        if (historyMessages && Array.isArray(historyMessages) && historyMessages.length > 0) {
+                            // 按照返回的顺序渲染历史消息（不自动滚动，最后统一滚动）
+                            historyMessages.forEach((msg, index) => {
+                                const isUser = !msg.is_staff;
+                                const messageType = msg.type;
+
+                                // 处理文件/图片消息 (type: 3)
+                                if (messageType === 3 && msg.body && typeof msg.body === 'object') {
+                                    const fileInfo = msg.body;
+
+                                    // 检查是否是图片
+                                    if (fileInfo.file_content_type && fileInfo.file_content_type.startsWith('image/') && fileInfo.file_url) {
+                                        this.addImageMessage(
+                                            fileInfo.file_url,
+                                            fileInfo.file_name || '图片',
+                                            fileInfo.file_size || 0,
+                                            isUser ? 'user' : 'customer-service',
+                                            msg.created_at,
+                                            false  // 不自动滚动
+                                        );
+                                    } else {
+                                        const fileText = `📎 文件: ${fileInfo.file_name || '未知文件'}\n大小: ${this.formatFileSize(fileInfo.file_size || 0)}\n类型: ${fileInfo.file_content_type || '未知'}`;
+                                        this.addMessage(
+                                            fileText,
+                                            isUser ? 'user' : 'customer-service',
+                                            msg.created_at,
+                                            false  // 不自动滚动
+                                        );
+                                    }
+                                } else {
+                                    // 处理文本消息
+                                    let content = '';
+                                    if (typeof msg.body === 'string') {
+                                        content = msg.body;
+                                    } else if (msg.body && typeof msg.body === 'object') {
+                                        content = msg.body.body || '';
+                                    }
+
+                                    if (content) {
+                                        content = content.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+                                        this.addMessage(
+                                            content,
+                                            isUser ? 'user' : 'customer-service',
+                                            msg.created_at,
+                                            false  // 不自动滚动
+                                        );
+                                    }
+                                }
+                            });
+
+                            // 保存状态
+                            this.currentIssueId = issueId;
+                            this.hasMoreMessages = hasMore;
+                            this.messageOffset = historyMessages.length;
+
+                            // 不在这里滚动，由调用方统一处理滚动逻辑
+                        }
+                    } catch (error) {
+                        console.error('加载历史消息失败:', error);
+                    }
+                },
+
+                // 向上滚动时加载更早的历史消息
+                async loadMoreHistoryMessages() {
+                    if (this.isLoadingMore || !this.hasMoreMessages) {
+                        return;
+                    }
+
+                    try {
+                        this.isLoadingMore = true;
+
+                        // 保存当前滚动位置
+                        const container = this.$refs.messagesContainer;
+                        const oldScrollHeight = container ? container.scrollHeight : 0;
+                        const oldScrollTop = container ? container.scrollTop : 0;
+
+                        const moreMessagesResult = HelpBot('loadMoreMessages', 20, this.messageOffset);
+
+                        // 兼容同步和异步
+                        const moreData = moreMessagesResult && typeof moreMessagesResult.then === 'function'
+                            ? await moreMessagesResult
+                            : moreMessagesResult;
+
+                        if (moreData && moreData.data && Array.isArray(moreData.data) && moreData.data.length > 0) {
+                            // 准备新消息数组（从旧到新）
+                            const newMessages = [];
+
+                            moreData.data.forEach(msg => {
+                                const isUser = !msg.is_staff;
+                                const messageType = msg.type;
+
+                                // 处理文件/图片消息 (type: 3)
+                                if (messageType === 3 && msg.body && typeof msg.body === 'object') {
+                                    const fileInfo = msg.body;
+
+                                    // 检查是否是图片
+                                    if (fileInfo.file_content_type && fileInfo.file_content_type.startsWith('image/') && fileInfo.file_url) {
+                                        newMessages.push({
+                                            id: this.messageId++,
+                                            type: isUser ? 'user' : 'customer-service',
+                                            isImage: true,
+                                            imageUrl: fileInfo.file_url,
+                                            fileName: fileInfo.file_name || '图片',
+                                            fileSize: fileInfo.file_size || 0,
+                                            timestamp: new Date(msg.created_at)
+                                        });
+                                    } else {
+                                        const fileText = `📎 文件: ${fileInfo.file_name || '未知文件'}\n大小: ${this.formatFileSize(fileInfo.file_size || 0)}\n类型: ${fileInfo.file_content_type || '未知'}`;
+                                        newMessages.push({
+                                            id: this.messageId++,
+                                            text: fileText,
+                                            type: isUser ? 'user' : 'customer-service',
+                                            timestamp: new Date(msg.created_at)
+                                        });
+                                    }
+                                } else {
+                                    // 处理文本消息
+                                    let content = '';
+                                    if (typeof msg.body === 'string') {
+                                        content = msg.body;
+                                    } else if (msg.body && typeof msg.body === 'object') {
+                                        content = msg.body.body || '';
+                                    }
+
+                                    if (content) {
+                                        content = content.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+                                        newMessages.push({
+                                            id: this.messageId++,
+                                            text: content,
+                                            type: isUser ? 'user' : 'customer-service',
+                                            timestamp: new Date(msg.created_at)
+                                        });
+                                    }
+                                }
+                            });
+
+                            // 将新消息插入到数组开头（因为是更早的消息）
+                            this.messages.unshift(...newMessages);
+
+                            // 更新状态
+                            this.messageOffset += moreData.data.length;
+                            this.hasMoreMessages = moreData.hasMore || false;
+
+                            // 恢复滚动位置（保持用户看到的内容不变）
+                            this.$nextTick(() => {
+                                if (container) {
+                                    const newScrollHeight = container.scrollHeight;
+                                    const scrollHeightDiff = newScrollHeight - oldScrollHeight;
+                                    container.scrollTop = oldScrollTop + scrollHeightDiff;
+                                }
+                            });
+                        } else {
+                            // 没有更多消息了
+                            this.hasMoreMessages = false;
+                        }
+                    } catch (error) {
+                        console.error('加载历史消息失败:', error);
+                        this.hasMoreMessages = false;
+                    } finally {
+                        this.isLoadingMore = false;
+                    }
+                },
+
+                // 处理文件选择
+                async handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        // 验证文件大小 (10MB)
+                        const maxSize = 10 * 1024 * 1024;
+                        if (file.size > maxSize) {
+                            this.addMessage(`❌ 文件大小超过限制，最大支持 ${maxSize / 1024 / 1024}MB`, 'system-error');
+                            return;
+                        }
+
+                        // 验证文件类型
+                        const allowedTypes = [
+                            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+                            'application/pdf', 'text/plain',
+                            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        ];
+
+                        if (!allowedTypes.includes(file.type)) {
+                            this.addMessage(`❌ 不支持的文件类型: ${file.type}`, 'system-error');
+                            return;
+                        }
+
+                        this.selectedFile = file;
+
+                        // 使用 SDK 上传文件
+                        await this.autoUploadFile();
+                    }
+
+                    // 清空文件输入，允许重复选择同一文件
+                    event.target.value = '';
+                },
+
+                // 触发文件选择
+                triggerFileInput() {
+                    if (this.$refs.fileInput) {
+                        this.$refs.fileInput.click();
+                    }
+                },
+
+                // 自动上传文件
+                async autoUploadFile() {
+                    if (!this.selectedFile) return;
+
+                    try {
+                        this.isUploading = true;
+                        this.uploadProgress = 0;
+
+                        // 保存文件信息
+                        const fileName = this.selectedFile.name;
+                        const fileSize = this.selectedFile.size;
+                        const fileType = this.selectedFile.type;
+
+                        // 将文件转换为 base64
+                        const base64Data = await this.fileToBase64(this.selectedFile);
+                        this.uploadProgress = 30;
+
+                        // 调用 HelpBot API 上传文件
+                        const uploadResult = await HelpBot('uploadFile', {
+                            data: base64Data,
+                            name: fileName,
+                            type: fileType,
+                            size: fileSize
+                        });
+                        this.uploadProgress = 70;
+
+                        // 显示上传成功的消息
+                        const isImage = fileType.startsWith('image/');
+                        if (isImage && uploadResult.fileUrl) {
+                            this.addImageMessage(uploadResult.fileUrl, fileName, fileSize);
+                        } else {
+                            this.addMessage(`📎 文件: ${fileName}\n大小: ${this.formatFileSize(fileSize)}\n类型: ${fileType}`, 'user');
+                        }
+
+                        // 发送文件消息到后端
+                        await HelpBot('sendFileMessage', {
+                            fileKey: uploadResult.fileKey,
+                            fileName: uploadResult.fileName,
+                            fileSize: uploadResult.fileSize,
+                            fileContentType: uploadResult.fileContentType
+                        });
+                        this.uploadProgress = 100;
+
+                        // 清理状态
+                        this.removeSelectedFile();
+
+                        // 更新 UI 显示
+                        this.$nextTick(() => {
+                            this.scrollToBottom();
+                        });
+
+                    } catch (error) {
+                        console.error('文件上传失败:', error);
+                        this.addMessage(`❌ 文件上传失败: ${error.message}`, 'system-error');
+                        this.removeSelectedFile();
+                    } finally {
+                        this.isUploading = false;
+                    }
+                },
+
+                // 将文件转换为 base64
+                fileToBase64(file) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                },
+
+                // 移除选中的文件
+                removeSelectedFile() {
+                    this.selectedFile = null;
+                    this.uploadProgress = 0;
+                    if (this.$refs.fileInput) {
+                        this.$refs.fileInput.value = '';
+                    }
+                },
+
+                // 格式化文件大小
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+
+                // 添加消息到界面
+                addMessage(text, type, customTimestamp = null, autoScroll = true) {
+                    this.messages.push({
+                        id: this.messageId++,
+                        text,
+                        type,
+                        timestamp: customTimestamp ? new Date(customTimestamp) : new Date()
+                    });
+                    if (autoScroll) {
+                        // 等待 Vue 完成 DOM 更新后再滚动
+                        this.$nextTick(() => {
+                            setTimeout(() => {
+                                this.scrollToBottom();
+                            }, 50);
+                        });
+                    }
+                },
+
+                // 添加图片消息到界面
+                addImageMessage(imageUrl, fileName, fileSize, messageType = 'user', customTimestamp = null, autoScroll = true) {
+                    this.messages.push({
+                        id: this.messageId++,
+                        type: messageType,
+                        isImage: true,
+                        imageUrl: imageUrl,
+                        fileName: fileName,
+                        fileSize: fileSize,
+                        timestamp: customTimestamp ? new Date(customTimestamp) : new Date()
+                    });
+                    if (autoScroll) {
+                        // 图片消息需要等待图片加载完成后再滚动
+                        this.$nextTick(() => {
+                            // 查找刚添加的图片元素
+                            const container = this.$refs.messagesContainer;
+                            if (container) {
+                                const images = container.querySelectorAll('img.message-image');
+                                const lastImage = images[images.length - 1];
+
+                                if (lastImage && !lastImage.complete) {
+                                    // 等待图片加载完成
+                                    lastImage.addEventListener('load', () => {
+                                        setTimeout(() => {
+                                            this.scrollToBottom();
+                                        }, 50);
+                                    });
+                                    // 如果图片加载失败或超时，也要滚动
+                                    lastImage.addEventListener('error', () => {
+                                        setTimeout(() => {
+                                            this.scrollToBottom();
+                                        }, 50);
+                                    });
+                                    setTimeout(() => {
+                                        this.scrollToBottom();
+                                    }, 1000);
+                                } else {
+                                    // 图片已加载或没有图片
+                                    setTimeout(() => {
+                                        this.scrollToBottom();
+                                    }, 50);
+                                }
+                            }
+                        });
+                    }
+                },
+
+                // 查看完整图片
+                viewFullImage(imageUrl, fileName) {
+                    const newWindow = window.open('', '_blank');
+                    newWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>${fileName}</title>
+                            <style>
+                                body {
+                                    margin: 0;
+                                    padding: 20px;
+                                    background: #000;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                    min-height: 100vh;
+                                }
+                                img {
+                                    max-width: 100%;
+                                    max-height: 100%;
+                                    object-fit: contain;
+                                    border-radius: 8px;
+                                }
+                                .info {
+                                    position: fixed;
+                                    top: 20px;
+                                    left: 20px;
+                                    background: rgba(255,255,255,0.9);
+                                    padding: 10px;
+                                    border-radius: 5px;
+                                    font-family: Arial, sans-serif;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="info">${fileName}</div>
+                            <img src="${imageUrl}" alt="${fileName}" />
+                        </body>
+                        </html>
+                    `);
+                },
+
+                // 格式化时间
+                formatTime(timestamp) {
+                    const now = new Date();
+                    const year = timestamp.getFullYear();
+                    const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+                    const day = String(timestamp.getDate()).padStart(2, '0');
+                    const hours = String(timestamp.getHours()).padStart(2, '0');
+                    const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+
+                    const isToday = timestamp.toDateString() === now.toDateString();
+                    const isSameYear = timestamp.getFullYear() === now.getFullYear();
+
+                    if (isToday) {
+                        return `${hours}:${minutes}`;
+                    } else if (isSameYear) {
+                        return `${month}-${day} ${hours}:${minutes}`;
+                    } else {
+                        return `${year}-${month}-${day} ${hours}:${minutes}`;
+                    }
+                },
+
+                // 格式化日期
+                formatDate(date) {
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    return date.toLocaleDateString('en-US', options);
+                },
+
+                // 选择问题
+                selectProblem(problem) {
+                    this.newMessage = problem;
+                    this.sendMessage();
+                    // 如果是在引导界面选择问题，清除引导界面标记，隐藏常见问题列表
+                    if (this.needsNewIssue) {
+                        this.needsNewIssue = false;
+                    }
+                },
+
+                // 开启新对话
+                startNewConversation() {
+                    console.log('[chat-widget] 用户点击"开启对话"按钮');
+                    // 清除引导界面标记，显示正常的聊天界面
+                    this.needsNewIssue = false;
+                    // 用户可以直接输入消息，发送后会自动创建 issue 并连接 SSE
+                },
+
+                // 滚动到底部
+                scrollToBottom(smooth = false, retryCount = 0) {
+                    // 简化滚动逻辑，避免多重调用导致的冲突
+                    const container = this.$refs.messagesContainer;
+                    if (container && container.scrollHeight > 0) {
+                        const targetScrollTop = container.scrollHeight;
+
+                        // 直接滚动，不使用复杂的验证机制
+                        if (smooth) {
+                            container.scrollTo({
+                                top: targetScrollTop,
+                                behavior: 'smooth'
+                            });
+                        } else {
+                            container.scrollTop = targetScrollTop;
+                        }
+                    }
+                },
+
+                // 等待图片加载完成后滚动到底部
+                async scrollAfterImagesLoaded() {
+                    const container = this.$refs.messagesContainer;
+                    if (!container) return;
+
+                    // 查找所有图片元素
+                    const images = container.querySelectorAll('img.message-image');
+
+                    if (images.length === 0) {
+                        // 没有图片，直接滚动
+                        setTimeout(() => {
+                            this.scrollToBottomWithRetry();
+                        }, 150);
+                        return;
+                    }
+
+                    // 等待所有图片加载完成
+                    const imageLoadPromises = Array.from(images).map((img) => {
+                        return new Promise((resolve) => {
+                            if (img.complete) {
+                                resolve();
+                            } else {
+                                img.addEventListener('load', () => {
+                                    resolve();
+                                });
+                                img.addEventListener('error', () => {
+                                    resolve(); // 即使失败也继续
+                                });
+                                // 设置超时，避免一直等待
+                                setTimeout(() => {
+                                    resolve();
+                                }, 3000);
+                            }
+                        });
+                    });
+
+                    // 等待所有图片加载完成（或超时）
+                    await Promise.all(imageLoadPromises);
+
+                    // 图片加载完成后，等待一小段时间让浏览器重新计算布局
+                    setTimeout(() => {
+                        this.scrollToBottomWithRetry();
+                    }, 100);
+                },
+
+                // 带重试机制的滚动到底部（用于确保历史消息加载后滚动到最新位置）
+                scrollToBottomWithRetry(maxRetries = 5, currentRetry = 0) {
+                    const container = this.$refs.messagesContainer;
+                    if (!container) return;
+
+                    // 计算正确的滚动位置
+                    const maxScrollTop = container.scrollHeight - container.clientHeight;
+
+                    // 滚动到底部
+                    container.scrollTop = maxScrollTop;
+
+                    // 等待一帧后验证是否真的滚动到底部了
+                    requestAnimationFrame(() => {
+                        const actualScrollTop = container.scrollTop;
+                        const isAtBottom = Math.abs(maxScrollTop - actualScrollTop) <= 5;
+
+                        // 如果没有到底部且还有重试次数，则继续重试
+                        if (!isAtBottom && currentRetry < maxRetries) {
+                            setTimeout(() => {
+                                this.scrollToBottomWithRetry(maxRetries, currentRetry + 1);
+                            }, 150);
+                        }
+                    });
+                },
+
+                // 处理滚动事件（加载更早的历史消息）
+                handleScroll() {
+                    const container = this.$refs.messagesContainer;
+                    if (!container) return;
+
+                    // 检测是否滚动到顶部（距离顶部 < 50px）
+                    if (container.scrollTop < 50 && this.hasMoreMessages && !this.isLoadingMore) {
+                        this.loadMoreHistoryMessages();
+                    }
+                }
+            },
+
+            async mounted() {
+                // 配置已在 Vue 应用创建前读取，这里直接使用
+
+                // 监听 HelpBot 事件
+                HelpBot('on', 'ready', this.onHelpBotReady);
+                HelpBot('on', 'message', this.onHelpBotMessage);
+                HelpBot('on', 'error', this.onHelpBotError);
+
+                HelpBot('on', 'messageSent', (data) => {
+                    this.isLoading = false;
+                    // 移除自动显示"正在输入"的10秒超时逻辑
+                    // 现在只有服务器明确发送 typing 事件时才会显示"正在输入"
+                });
+
+                // 移除立即检查状态的代码，统一由 'ready' 事件触发
+                // 这样每次打开都会先显示 loading 状态
+
+                // 添加滚动事件监听器（加载更早的历史消息）
+                this.$nextTick(() => {
+                    const container = this.$refs.messagesContainer;
+                    if (container) {
+                        container.addEventListener('scroll', this.handleScroll);
+                    }
+                });
+            },
+
+            beforeUnmount() {
+                // 清除"正在输入"定时器
+                if (this.typingTimer) {
+                    clearTimeout(this.typingTimer);
+                    this.typingTimer = null;
+                }
+
+                // 移除滚动事件监听器
+                const container = this.$refs.messagesContainer;
+                if (container) {
+                    container.removeEventListener('scroll', this.handleScroll);
+                }
+            }
+        }).mount('#app');
+    </script>
+
+
+</body>
+
+</html>

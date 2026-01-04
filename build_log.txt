@@ -1,0 +1,299 @@
+﻿Initialized native services in: C:\Users\admin\.gradle\native
+Initialized jansi services in: C:\Users\admin\.gradle\native
+Found daemon DaemonInfo{pid=316, address=[969e0b0c-7bdf-4997-ae63-b7df2a278479 port:58007, addresses:[/127.0.0.1]], state=Idle, lastBusy=1766559087943, context=DefaultDaemonContext[uid=866e6eb8-28dc-431f-957d-ce61c0b71472,javaHome=C:\Users\admin\.antigravity\extensions\redhat.java-1.50.0-win32-x64\jre\21.0.9-win32-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\admin\.gradle\daemon,pid=316,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=CN,-Duser.language=zh,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Program Files\Java\jdk-24.0.1 (no JDK specified, using current Java home), daemonOpts=[-Xmx2048m, -Dfile.encoding=UTF-8, -Duser.country=CN, -Duser.language=zh, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=866e6eb8-28dc-431f-957d-ce61c0b71472,javaHome=C:\Users\admin\.antigravity\extensions\redhat.java-1.50.0-win32-x64\jre\21.0.9-win32-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\admin\.gradle\daemon,pid=316,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=CN,-Duser.language=zh,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 30980). The daemon log file: C:\Users\admin\.gradle\daemon\8.13\daemon-30980.out.log
+Starting 11th build in daemon [uptime: 1 hrs 15 mins 30.612 secs, performance: 99%, GC rate: 0.00/s, heap usage: 0% of 2 GiB]
+Using 20 worker leases.
+Now considering [D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\settings.gradle.kts'.
+Projects loaded. Root project using build file 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\build.gradle.kts'.
+Included projects: [root project 'sdk_webview_test', project ':app', project ':HelpBot']
+
+> Configure project :
+Evaluating root project 'sdk_webview_test' using build file 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '8.13.1', apply: false]
+Resolved plugin [id: 'com.android.library', version: '8.13.1', apply: false]
+
+> Configure project :app
+Evaluating project ':app' using build file 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\app\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '8.13.1']
+Using default execution profile
+
+> Configure project :HelpBot
+Evaluating project ':HelpBot' using build file 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\HelpBot\build.gradle.kts'.
+Resolved plugin [id: 'com.android.library', version: '8.13.1']
+Using default execution profile
+All projects evaluated.
+Task path ':HelpBot:assembleRelease' matched project ':HelpBot'
+Task name matched 'assembleRelease'
+Selected primary task 'assembleRelease' from project :HelpBot
+Tasks to be executed: [task ':HelpBot:preBuild', task ':HelpBot:preReleaseBuild', task ':HelpBot:checkReleaseAarMetadata', task ':HelpBot:mergeReleaseJniLibFolders', task ':HelpBot:mergeReleaseNativeLibs', task ':HelpBot:stripReleaseDebugSymbols', task ':HelpBot:copyReleaseJniLibsProjectAndLocalJars', task ':HelpBot:generateReleaseResValues', task ':HelpBot:extractDeepLinksForAarRelease', task ':HelpBot:generateReleaseBuildConfig', task ':HelpBot:generateReleaseResources', task ':HelpBot:packageReleaseResources', task ':HelpBot:processReleaseNavigationResources', task ':HelpBot:parseReleaseLocalResources', task ':HelpBot:generateReleaseRFile', task ':HelpBot:extractReleaseAnnotations', task ':HelpBot:mergeReleaseShaders', task ':HelpBot:compileReleaseShaders', task ':HelpBot:generateReleaseAssets', task ':HelpBot:mergeReleaseAssets', task ':HelpBot:javaPreCompileRelease', task ':HelpBot:compileReleaseJavaWithJavac', task ':HelpBot:mergeReleaseGeneratedProguardFiles', task ':HelpBot:mergeReleaseConsumerProguardFiles', task ':HelpBot:prepareLintJarForPublish', task ':HelpBot:prepareReleaseArtProfile', task ':HelpBot:processReleaseManifest', task ':HelpBot:extractProguardFiles', task ':HelpBot:generateReleaseLibraryProguardRules', task ':HelpBot:processReleaseJavaRes', task ':HelpBot:mergeReleaseJavaResource', task ':HelpBot:minifyReleaseWithR8', task ':HelpBot:syncReleaseLibJars', task ':HelpBot:writeReleaseAarMetadata', task ':HelpBot:bundleReleaseAar', task ':HelpBot:mapReleaseSourceSetPaths', task ':HelpBot:mergeReleaseResources', task ':HelpBot:verifyReleaseResources', task ':HelpBot:assembleRelease']
+Tasks that were excluded: []
+Resolve mutations for :HelpBot:preBuild (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:preBuild (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:preBuild UP-TO-DATE
+Skipping task ':HelpBot:preBuild' as it has no actions.
+Resolve mutations for :HelpBot:preReleaseBuild (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:preReleaseBuild (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:preReleaseBuild UP-TO-DATE
+Skipping task ':HelpBot:preReleaseBuild' as it has no actions.
+Resolve mutations for :HelpBot:checkReleaseAarMetadata (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:checkReleaseAarMetadata (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:checkReleaseAarMetadata UP-TO-DATE
+Caching disabled for task ':HelpBot:checkReleaseAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':HelpBot:checkReleaseAarMetadata' as it is up-to-date.
+Resolve mutations for :HelpBot:mergeReleaseJniLibFolders (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:mergeReleaseJniLibFolders (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:mergeReleaseJniLibFolders UP-TO-DATE
+Caching disabled for task ':HelpBot:mergeReleaseJniLibFolders' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':HelpBot:mergeReleaseJniLibFolders' as it is up-to-date.
+Resolve mutations for :HelpBot:mergeReleaseNativeLibs (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:mergeReleaseNativeLibs (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:mergeReleaseNativeLibs NO-SOURCE
+Skipping task ':HelpBot:mergeReleaseNativeLibs' as it has no source files and no previous output files.
+Resolve mutations for :HelpBot:stripReleaseDebugSymbols (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:stripReleaseDebugSymbols (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:stripReleaseDebugSymbols NO-SOURCE
+Skipping task ':HelpBot:stripReleaseDebugSymbols' as it has no source files and no previous output files.
+Resolve mutations for :HelpBot:copyReleaseJniLibsProjectAndLocalJars (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:copyReleaseJniLibsProjectAndLocalJars (Thread[#1178,Execution worker,5,main]) started.
+
+> Task :HelpBot:copyReleaseJniLibsProjectAndLocalJars UP-TO-DATE
+Caching disabled for task ':HelpBot:copyReleaseJniLibsProjectAndLocalJars' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':HelpBot:copyReleaseJniLibsProjectAndLocalJars' as it is up-to-date.
+Resolve mutations for :HelpBot:generateReleaseResValues (Thread[#1178,Execution worker,5,main]) started.
+:HelpBot:generateReleaseResValues (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:generateReleaseResValues UP-TO-DATE
+Caching disabled for task ':HelpBot:generateReleaseResValues' because:
+  Build cache is disabled
+Skipping task ':HelpBot:generateReleaseResValues' as it is up-to-date.
+Resolve mutations for :HelpBot:extractDeepLinksForAarRelease (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:extractDeepLinksForAarRelease (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:extractDeepLinksForAarRelease UP-TO-DATE
+Caching disabled for task ':HelpBot:extractDeepLinksForAarRelease' because:
+  Build cache is disabled
+Skipping task ':HelpBot:extractDeepLinksForAarRelease' as it is up-to-date.
+Resolve mutations for :HelpBot:generateReleaseBuildConfig (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:generateReleaseBuildConfig (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:generateReleaseBuildConfig UP-TO-DATE
+Caching disabled for task ':HelpBot:generateReleaseBuildConfig' because:
+  Build cache is disabled
+Skipping task ':HelpBot:generateReleaseBuildConfig' as it is up-to-date.
+Resolve mutations for :HelpBot:generateReleaseResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:generateReleaseResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:generateReleaseResources UP-TO-DATE
+Caching disabled for task ':HelpBot:generateReleaseResources' because:
+  Build cache is disabled
+Skipping task ':HelpBot:generateReleaseResources' as it is up-to-date.
+Resolve mutations for :HelpBot:packageReleaseResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:packageReleaseResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:packageReleaseResources UP-TO-DATE
+Caching disabled for task ':HelpBot:packageReleaseResources' because:
+  Build cache is disabled
+Skipping task ':HelpBot:packageReleaseResources' as it is up-to-date.
+Resolve mutations for :HelpBot:processReleaseNavigationResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:processReleaseNavigationResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:processReleaseNavigationResources UP-TO-DATE
+Caching disabled for task ':HelpBot:processReleaseNavigationResources' because:
+  Build cache is disabled
+Skipping task ':HelpBot:processReleaseNavigationResources' as it is up-to-date.
+Resolve mutations for :HelpBot:parseReleaseLocalResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:parseReleaseLocalResources (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:parseReleaseLocalResources UP-TO-DATE
+Caching disabled for task ':HelpBot:parseReleaseLocalResources' because:
+  Build cache is disabled
+Skipping task ':HelpBot:parseReleaseLocalResources' as it is up-to-date.
+Resolve mutations for :HelpBot:generateReleaseRFile (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:generateReleaseRFile (Thread[#1186,Execution worker Thread 8,5,main]) started.
+
+> Task :HelpBot:generateReleaseRFile UP-TO-DATE
+Caching disabled for task ':HelpBot:generateReleaseRFile' because:
+  Build cache is disabled
+Skipping task ':HelpBot:generateReleaseRFile' as it is up-to-date.
+Resolve mutations for :HelpBot:extractReleaseAnnotations (Thread[#1186,Execution worker Thread 8,5,main]) started.
+:HelpBot:extractReleaseAnnotations (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:extractReleaseAnnotations UP-TO-DATE
+Caching disabled for task ':HelpBot:extractReleaseAnnotations' because:
+  Build cache is disabled
+Skipping task ':HelpBot:extractReleaseAnnotations' as it is up-to-date.
+Resolve mutations for :HelpBot:mergeReleaseShaders (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:mergeReleaseShaders (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:mergeReleaseShaders UP-TO-DATE
+Caching disabled for task ':HelpBot:mergeReleaseShaders' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':HelpBot:mergeReleaseShaders' as it is up-to-date.
+Resolve mutations for :HelpBot:compileReleaseShaders (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:compileReleaseShaders (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:compileReleaseShaders NO-SOURCE
+Skipping task ':HelpBot:compileReleaseShaders' as it has no source files and no previous output files.
+Resolve mutations for :HelpBot:generateReleaseAssets (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:generateReleaseAssets (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:generateReleaseAssets UP-TO-DATE
+Skipping task ':HelpBot:generateReleaseAssets' as it has no actions.
+Resolve mutations for :HelpBot:mergeReleaseAssets (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:mergeReleaseAssets (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:mergeReleaseAssets UP-TO-DATE
+Caching disabled for task ':HelpBot:mergeReleaseAssets' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':HelpBot:mergeReleaseAssets' as it is up-to-date.
+Resolve mutations for :HelpBot:javaPreCompileRelease (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:javaPreCompileRelease (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:javaPreCompileRelease UP-TO-DATE
+Caching disabled for task ':HelpBot:javaPreCompileRelease' because:
+  Build cache is disabled
+Skipping task ':HelpBot:javaPreCompileRelease' as it is up-to-date.
+Resolve mutations for :HelpBot:compileReleaseJavaWithJavac (Thread[#1194,Execution worker Thread 16,5,main]) started.
+:HelpBot:compileReleaseJavaWithJavac (Thread[#1194,Execution worker Thread 16,5,main]) started.
+
+> Task :HelpBot:compileReleaseJavaWithJavac FAILED
+Custom actions are attached to task ':HelpBot:compileReleaseJavaWithJavac'.
+Caching disabled for task ':HelpBot:compileReleaseJavaWithJavac' because:
+  Build cache is disabled
+Task ':HelpBot:compileReleaseJavaWithJavac' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':HelpBot:compileReleaseJavaWithJavac'.
+Compilation mode: in-process compilation
+Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+Compiling with toolchain 'C:\Program Files\Java\jdk-24.0.1'.
+file or directory 'D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\HelpBot\src\release\java', not found
+Compiling with JDK Java compiler API.
+.\gradlew : D:\xinhuo
+\HelpBotSdkDemo\HelpB
+otSdkDemo\HelpBot\src
+\main\java\com\exampl
+e\HelpBot\HelpBot.jav
+a:1653: 閿欒: webView鍦
+℉elpBotActivity涓笉鏄叕
+鍏辩殑; 鏃犳硶浠庡閮ㄧ▼搴忓寘涓鍏
+惰繘琛岃闂?            re
+turn (activity == nul
+l) ? null : activity.
+webView;
+所在位置 行:1 字符: 1
++ .\gradlew :HelpBot:
+assembleRelease --inf
+o 2>&1 | Out-File -Fi
+lePath " ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo   
+           : NotSpeci
+fi    ed: (D:\xinhuo\
+Hel    pB...tivity.we
+bVie    w;:String) []
+, Rem    oteException
+    + FullyQualifiedE
+r    rorId : NativeCo
+mm    andError
+ 
+                     
+                     
+             ^
+娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡
+宸茶繃鏃剁殑 API銆?
+娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-X
+lint:deprecation 閲嶆柊缂
+栬瘧銆?
+娉? D:\xinhuo\HelpBotS
+dkDemo\HelpBotSdkDemo
+\HelpBot\src\main\jav
+a\com\example\HelpBot
+\utils\JsonUtils.java
+浣跨敤浜嗘湭缁忔鏌ユ垨涓嶅畨鍏ㄧ殑鎿嶄綔
+銆?
+娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-X
+lint:unchecked 閲嶆柊缂栬瘧
+銆?
+1 涓敊璇?
+
+[Incubating] Problems report is available at: file:///D:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/build/reports/problems/problems-report.html
+
+FAILURE: Build failed
+ with an exception.
+
+* What went wrong:
+Execution failed for 
+task ':HelpBot:compil
+eReleaseJavaWithJavac
+'.
+> Compilation failed;
+ see the compiler out
+put below.
+  D:\xinhuo\HelpBotSd
+kDemo\HelpBotSdkDemo\
+HelpBot\src\main\java
+\com\example\HelpBot\
+HelpBot.java:1653: 閿欒
+: webView鍦℉elpBotAct
+ivity涓笉鏄叕鍏辩殑; 鏃犳硶浠庡
+閮ㄧ▼搴忓寘涓鍏惰繘琛岃闂?   
+           return (ac
+tivity == null) ? nul
+l : activity.webView;
+                     
+                     
+               ^
+  娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩
+栦簡宸茶繃鏃剁殑 API銆?
+  娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?
+-Xlint:deprecation 閲嶆
+柊缂栬瘧銆?
+  娉? D:\xinhuo\HelpBo
+tSdkDemo\HelpBotSdkDe
+mo\HelpBot\src\main\j
+ava\com\example\HelpB
+ot\utils\JsonUtils.ja
+va浣跨敤浜嗘湭缁忔鏌ユ垨涓嶅畨鍏ㄧ殑鎿
+嶄綔銆?
+  娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?
+-Xlint:unchecked 閲嶆柊缂
+栬瘧銆?
+  1 涓敊璇?
+
+* Try:
+> Check your code and
+ dependencies to fix 
+the compilation error
+(s)
+> Run with --scan to 
+get full insights.
+
+BUILD FAILED in 1s
+16 actionable tasks: 1 executed, 15 up-to-date
+Watched directory hierarchies: [D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo]

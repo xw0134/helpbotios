@@ -1,0 +1,21 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.0",
+  "Category": "",
+  "Description": "HelpBotUE Demo（Android）",
+  "Modules": [
+    {
+      "Name": "HelpBotUEDemo",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "HelpBotUE",
+      "Enabled": true
+    }
+  ]
+}
+
+

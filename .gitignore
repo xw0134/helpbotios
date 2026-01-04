@@ -1,0 +1,21 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Unreal Engine（SDK Demo/HostProject）生成物，禁止入库
+SDK/UnrealEngine/**/Binaries/
+SDK/UnrealEngine/**/Intermediate/
+SDK/UnrealEngine/**/Saved/
+SDK/UnrealEngine/**/Output/

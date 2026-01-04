@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HelpBot Android SDK 安全检测与修复总结</title>
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","PingFang SC","Microsoft YaHei",sans-serif; line-height: 1.6; padding: 20px; color: #111; }
+    code, pre { font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; }
+    h1,h2,h3 { line-height: 1.25; }
+    .box { border: 1px solid #eee; background: #fafafa; padding: 12px 14px; border-radius: 8px; }
+    .ok { color: #0a7a0a; font-weight: 600; }
+    .warn { color: #a15c00; font-weight: 600; }
+    .bad { color: #b00020; font-weight: 600; }
+    ul { margin-top: 6px; }
+    .small { color:#555; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>HelpBot Android SDK 安全检测与修复总结</h1>
+
+  <div class="box">
+    <div><b>结论</b>：已完成你提出的安全性检测项（内存泄漏/空指针/ANR/线程安全/资源管理/布局优化）以及 5 项功能核对，并在 Demo 的 <code>MainActivity</code> 写入可运行的测试代码（悬浮窗、位置尺寸、图标自定义、系统信息上报、回调与通知模拟）。</div>
+    <div class="small">说明：本次以“SDK 级稳定性/安全性”为目标，优先修复高风险点（Activity 泄漏、弱网兜底、通知权限、网络/电量采集 NPE/除零、WebView 安全收敛）。</div>
+  </div>
+
+  <h2>1. 安全性检测（问题与修复）</h2>
+
+  <h3>1.1 内存泄漏（Context 泄漏/匿名内部类/静态变量持有）</h3>
+  <ul>
+    <li><span class="bad">问题</span>：<code>HelpBot</code> 通过静态字段强引用 <code>HelpBotActivity</code>，存在典型 Activity 泄漏风险（配置变更/返回栈/异常路径）。</li>
+    <li><span class="ok">修复</span>：改为 <code>WeakReference&lt;HelpBotActivity&gt;</code> 保存当前 Activity，且在 <code>onDestroy</code> 清理。</li>
+    <li><span class="ok">优化</span>：新增 <code>HelpBotWebViewSession.destroySession()</code>，宿主可在“退出/注销”时释放 WebView 与状态，降低进程驻留内存与泄漏概率。</li>
+  </ul>
+
+  <h3>1.2 空指针风险（可能为 null 的变量/资源引用）</h3>
+  <ul>
+    <li><span class="warn">风险点</span>：<code>AndroidDevice</code> 中网络/电量信息采集存在空对象与除零边界（如 <code>ConnectivityManager</code> 为 null、battery scale ≤ 0）。</li>
+    <li><span class="ok">修复</span>：增加空判断与边界判断，并补充异常捕获与日志。</li>
+  </ul>
+
+  <h3>1.3 ANR 检测（主线程耗时/Receiver 超时）</h3>
+  <ul>
+    <li><span class="ok">现状</span>：图标网络下载已使用单线程线程池（非主线程），避免 ANR。</li>
+    <li><span class="warn">注意</span>：WebView 创建必须在主线程执行（Android 平台限制），已通过主线程 Handler 投递，但 install 阶段仍可能引发瞬时卡顿，建议宿主在冷启动后稍后调用 install 以平滑体验。</li>
+  </ul>
+
+  <h3>1.4 线程安全（多线程竞争/同步问题）</h3>
+  <ul>
+    <li><span class="ok">现状</span>：WebView Session 的初始化状态使用 <code>AtomicBoolean</code>；待补发 login token 使用 “读取并清空” 策略，降低敏感信息滞留时间。</li>
+    <li><span class="ok">增强</span>：增加初始化失败事件派发与有限重试，避免“卡死无回调”的不可观测状态。</li>
+  </ul>
+
+  <h3>1.5 资源管理（IO/Cursor/Bitmap）</h3>
+  <ul>
+    <li><span class="bad">问题</span>：入口图标下载逻辑里 <code>ByteArrayOutputStream</code> 未显式关闭，且 View 已释放时 Bitmap 可能无处落地。</li>
+    <li><span class="ok">修复</span>：补齐流关闭，并在 View 不存在时尝试 recycle Bitmap，降低 OOM 风险。</li>
+  </ul>
+
+  <h3>1.6 布局优化（层级/过度绘制/inflate）</h3>
+  <ul>
+    <li><span class="ok">现状</span>：悬浮窗使用单层 <code>FrameLayout</code> 叠加（WebView 容器 + 图标），层级浅，避免过度布局。</li>
+  </ul>
+
+  <h2>2. 需求核对（你列出的 5 项能力）</h2>
+
+  <h3>2.1 WebView 窗口显示/隐藏/位置尺寸自定义</h3>
+  <ul>
+    <li><span class="ok">已完成</span>：<code>HelpBotWindowManager</code> 支持 show/hide/toggle，支持 dp 级位置/尺寸设置。</li>
+  </ul>
+
+  <h3>2.2 系统基础信息采集并通过 WebView 调用 JS 上报服务端</h3>
+  <ul>
+    <li><span class="ok">已完成</span>：<code>HelpBot.reportSystemInfoToServerByJs()</code> 通过 <code>updateUserSdkMeta</code> 上报（电量/网络/系统/机型/版本/设备ID 等）。</li>
+  </ul>
+
+  <h3>2.3 WebView JS 接口封装（≤10）</h3>
+  <ul>
+    <li><span class="ok">已完成</span>：<code>HelpBotJsCommand</code> 统一封装为 <b>10 个</b>命令生成方法（字符串入参使用 <code>JSONObject.quote</code>，降低注入与语法风险）。</li>
+    <li class="small">注：<code>websdk/</code> 目录文件仅供参考，Android 代码未直接引用（符合“禁止引用 websdk 文件”的约束）。</li>
+  </ul>
+
+  <h3>2.4 “JS 回调 / SSE 消息通知”</h3>
+  <ul>
+    <li><span class="ok">已完成</span>：JSBridge（<code>@JavascriptInterface</code>）已实现 <code>onSSEMessage</code>，默认展示系统通知，并透传宿主事件 <code>SSE_MESSAGE</code>。</li>
+    <li><span class="ok">增强</span>：Android 13+ 增加通知权限兜底判断；Demo 里提供“模拟 SSE 回调”测试入口。</li>
+  </ul>
+
+  <h3>2.5 图标显示与自定义</h3>
+  <ul>
+    <li><span class="ok">已完成</span>：支持 resId 设置与 https URL 下载设置（体积限制 1MB），支持显示/隐藏与位置拖拽。</li>
+  </ul>
+
+  <h2>3. 更多兜底方案（弱网/初始化失败/JS 报错/安全/内存/状态管理）</h2>
+  <ul>
+    <li><b>弱网/加载失败</b>：WebView 发生 <code>onReceivedError/onReceivedHttpError</code> 时，SDK 会派发事件 <code>WEBVIEW_LOAD_ERROR</code>，并做有限次数 reload 重试（最多 2 次，带退避）。</li>
+    <li><b>初始化失败可观测</b>：WebSDK 初始化超时或异常会派发 <code>WEBSDK_INIT_FAILED</code>，避免无回调“黑盒”。</li>
+    <li><b>退出/注销释放</b>：新增 <code>closeSession</code> 与 <code>destroySession</code> 释放 WebView/状态，降低内存与泄漏风险。</li>
+    <li><b>WebView 安全收敛</b>：默认仅允许 https 导航；关闭 file/content 访问；启用 SafeBrowsing（API 26+）；关闭混合内容。</li>
+  </ul>
+
+  <h2>4. Demo（MainActivity）测试说明</h2>
+  <ol>
+    <li>点击 <b>Install</b>：初始化 SDK，挂载悬浮入口图标与浮窗 WebView，自动触发一次系统信息上报，并注册事件回调。</li>
+    <li>点击 <b>Gen-Token</b>：向你配置的 Token 服务请求 token 并显示。</li>
+    <li>点击 <b>Login</b>：使用 token 登录（若未 Gen-Token 会提示）。</li>
+    <li>点击 <b>OpenConversation</b>：打开全屏 <code>HelpBotActivity</code> 承载 WebView。</li>
+    <li><b>长按 OpenConversation</b>：切换浮窗 WebView 显示/隐藏，并设置位置/尺寸。</li>
+    <li><b>长按 Login</b>：模拟 SSE 新消息摘要回调（用于验证通知/事件透传）。</li>
+  </ol>
+
+  <h2>5. 改动文件清单（关键）</h2>
+  <ul>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/HelpBot.java</code>：修复 Activity 泄漏；补齐 closeSession/logout；增加 Debug 模拟 SSE。</li>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/web/HelpBotWebViewSession.java</code>：增加 destroySession；初始化失败/弱网错误事件；有限重试。</li>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/web/HelpBotWebViewHelper.java</code>：WebView 安全收敛；错误回调与重试触发；仅 https 导航。</li>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/window/HelpBotWindowManager.java</code>：补齐 IO 关闭与 Bitmap 兜底回收。</li>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/core/AndroidDevice.java</code>：修复 NPE/除零边界与日志。</li>
+    <li><code>HelpBot/src/main/java/com/example/HelpBot/notification/HelpBotNotificationHelper.java</code>：Android 13+ 通知权限兜底。</li>
+    <li><code>app/src/main/java/com/example/sdk_webview_test/MainActivity.java</code>：补齐测试代码；统一使用 HBlogger；申请通知权限。</li>
+    <li><code>app/src/main/AndroidManifest.xml</code>：增加 POST_NOTIFICATIONS（Demo）。</li>
+  </ul>
+
+  <div class="box small">
+    <b>建议</b>：后续若要达到“生产级”安全标准，建议增加：证书固定/域名 Pinning（可选）、更严格的跳转白名单策略（host + path）、JSBridge 事件白名单校验与限流、以及针对 WebView 的崩溃恢复（单例重建策略）。
+  </div>
+</body>
+</html>
+
+

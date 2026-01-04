@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      HelpBot SDK 内置主题：
+      目的：避免宿主未使用 AppCompat/Material 主题时，启动 HelpBotActivity 直接崩溃。
+      原则：SDK 自给自足、最小侵入、不依赖宿主主题定义。
+    -->
+    <style name="HelpBotTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowIsTranslucent">false</item>
+    </style>
+
+</resources>

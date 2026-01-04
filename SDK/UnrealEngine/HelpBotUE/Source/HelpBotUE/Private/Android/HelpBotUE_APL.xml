@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HelpBotUE Android UPL：
+  - 拷贝 AAR 到 Gradle app/libs
+  - 注入 Gradle 依赖（AAR + AndroidX）
+  - 拷贝 Java 桥接类到 app/src/main/java
+-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <init>
+        <setBool result="bEnableHelpBotUE" value="true"/>
+    </init>
+
+    <resourceCopies>
+        <!-- AAR -->
+        <copyFile
+                src="$S(PluginDir)/ThirdParty/Android/HelpBot-release.aar"
+                dst="$S(GradleDir)/app/libs/HelpBot-release.aar"/>
+
+        <!-- Java bridge -->
+        <copyFile
+                src="$S(PluginDir)/Source/HelpBotUE/Private/Android/HelpBotUEBridge.java"
+                dst="$S(GradleDir)/app/src/main/java/com/helpbot/ue/HelpBotUEBridge.java"/>
+    </resourceCopies>
+
+    <buildGradleAdditions>
+        <![CDATA[
+// =========================
+// HelpBotUE - Gradle 注入
+// =========================
+repositories {
+    flatDir { dirs 'libs' }
+}
+
+dependencies {
+    implementation(name: 'HelpBot-release', ext: 'aar')
+
+    // HelpBot AAR 依赖（与 Android 模块 build.gradle.kts 保持一致）
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.activity:activity:1.8.2'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+}
+        ]]>
+    </buildGradleAdditions>
+
+    <!-- ProGuard/R8：防止桥接类与 native 方法在极限裁剪场景下被移除 -->
+    <proguardAdditions>
+        <![CDATA[
+-keep class com.helpbot.ue.HelpBotUEBridge { *; }
+        ]]>
+    </proguardAdditions>
+
+</root>
+
+

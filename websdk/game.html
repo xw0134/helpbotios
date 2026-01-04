@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!-- saved from url=(0052)https://dev-bot-server.yuedongcs.com:8443/index.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>game</title>
+<style>
+            /* HelpBot 聊天气泡 */
+            .helpbot-chat-bubble {
+                position: fixed !important;
+                bottom: 20px !important;
+                right: 20px !important;
+                width: 60px !important;
+                height: 60px !important;
+                min-width: 60px !important;
+                min-height: 60px !important;
+                max-width: 60px !important;
+                max-height: 60px !important;
+                background: linear-gradient(135deg, #667eea, #764ba2) !important;
+                border-radius: 50% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4) !important;
+                transition: all 0.3s ease !important;
+                z-index: 999999 !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-size: 24px !important;
+                color: white !important;
+            }
+
+            .helpbot-chat-bubble:hover {
+                transform: scale(1.1) !important;
+                box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6) !important;
+            }
+
+            .helpbot-chat-bubble-icon {
+                width: 24px !important;
+                height: 24px !important;
+                flex-shrink: 0 !important;
+            }
+
+            /* 隐藏气泡样式（WebView 模式） */
+            .helpbot-chat-bubble.hidden {
+                display: none !important;
+            }
+
+            /* HelpBot 聊天窗口 */
+            .helpbot-chat-iframe {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 375px;
+                height: 667px;
+                border: none;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                z-index: 999998;
+                display: none;
+                background: white;
+                transition: all 0.3s ease;
+            }
+
+            .helpbot-chat-iframe.helpbot-open {
+                display: block;
+                animation: helpbot-slideIn 0.3s ease;
+            }
+
+            @keyframes helpbot-slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* 全屏模式（WebView 模式） */
+            .helpbot-chat-iframe.fullscreen {
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+            }
+
+            /* 响应式 */
+            @media (max-width: 480px) {
+                .helpbot-chat-iframe:not(.fullscreen) {
+                    width: calc(100vw - 40px);
+                    height: calc(100vh - 40px);
+                    bottom: 20px;
+                    right: 20px;
+                }
+            }
+        </style></head>
+<body>
+    <script id="helpbot-sdk-script" src="./js/helpbot-sdk.js" async=""></script><script id="helpbot-bridge-script" src="./js/helpbot-bridge.js" async=""></script><script id="helpbot-logger-script" src="./js/helpbot-logger.js" async=""></script><script src="./js/helpbot-loader.js"></script>
+
+
+<button class="helpbot-chat-bubble" aria-label="打开客服聊天">
+                <svg class="helpbot-chat-bubble-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"></path>
+                </svg>
+            </button><iframe class="helpbot-chat-iframe helpbot-open" src="chat-widget.html" title="HelpBot 客服聊天" allow="camera; microphone"></iframe></body></html>

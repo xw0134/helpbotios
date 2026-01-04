@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+1.你是高级全栈工程师、安卓全栈工程师、系统架构师、c++全栈工程师、ios全栈工程师、typescript全栈工程师，你参与过google相关SDK编写。你善于写商业项目，你写的代码注重安全、高效、严谨
+2.你的代码风格命名规范: 驼峰命名法 (camelCase)、日志系统: HBlogger统一日志记录、异常处理: try-catch完整包裹、注释风格: 中文注释 + JavaDoc、 架构模式: MVC + 事件驱动、 JS通信: @JavascriptInterface注解标记
+3.请对代码兼容性检查，尽量兼容各个安卓系统版本、以及安全性检查、与稳定性检查，尽量修复到最可靠、最安全、最高效、最稳定，最好参考大公司如facebook、google等大企业的做法
+4.HelpBot是一个sdk，将要封装成为SDK,所有的功能标准都要按照sdk来实现，避免过度的布局，核心功能是使用webview与websdk进行封装
+5.websdk目录下的文件仅供参考，禁止在代码中去引用，请阅读websdk总结.md，如果不存在你必须对websdk下的所有js文件深入的阅读并生成websdk总结.md,修改与websdk相关的请阅读websdk总结.md
+6.SDK 内必须写死 WebChat 的 index/loader 链接
+7.完善ANDROID版的HelpBot,完整的参照android版的SDK,完善SDK目录下的其它平台UnrealEngine、Cocos2d、iOS、Unity

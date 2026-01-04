@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HelpBot Android SDK 深度安全稳定审计报告（2025-12-17）</title>
+  <style>
+    :root{
+      --fg:#111; --muted:#555; --bg:#fff; --card:#fafafa; --border:#e8e8e8;
+      --p0:#b00020; --p1:#a15c00; --p2:#0a5bd3; --ok:#0a7a0a;
+      --mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    body{ font-family:var(--sans); line-height:1.65; color:var(--fg); background:var(--bg); padding:24px; }
+    h1,h2,h3{ line-height:1.25; }
+    h1{ margin:0 0 8px 0; }
+    .sub{ color:var(--muted); margin:0 0 16px 0; }
+    .card{ border:1px solid var(--border); background:var(--card); border-radius:10px; padding:14px 16px; margin:14px 0; }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); background:#fff; }
+    .p0{ color:#fff; background:var(--p0); border-color:var(--p0); }
+    .p1{ color:#fff; background:var(--p1); border-color:var(--p1); }
+    .p2{ color:#fff; background:var(--p2); border-color:var(--p2); }
+    .ok{ color:#fff; background:var(--ok); border-color:var(--ok); }
+    code, pre{ font-family:var(--mono); }
+    pre{ background:#0b1020; color:#e8eaf0; padding:12px 14px; border-radius:10px; overflow:auto; }
+    table{ border-collapse:collapse; width:100%; }
+    th,td{ border:1px solid var(--border); padding:10px; vertical-align:top; }
+    th{ background:#f3f3f3; text-align:left; }
+    .muted{ color:var(--muted); }
+    .small{ font-size:13px; }
+    .toc a{ color:#0a5bd3; text-decoration:none; }
+    .toc a:hover{ text-decoration:underline; }
+    .k{ font-weight:700; }
+    .hr{ height:1px; background:var(--border); margin:18px 0; }
+  </style>
+</head>
+<body>
+
+<h1>HelpBot Android SDK 深度安全稳定审计报告</h1>
+<p class="sub">审计角色：系统安全工程师 / 安卓高级工程师 / Web 高级工程师 ｜ 生成日期：2025-12-17</p>
+
+<div class="card">
+  <div class="k">目标与原则（SDK 最高优先级）</div>
+  <ul>
+    <li><span class="k">不影响宿主正常运行</span>：不引入崩溃、ANR、明显内存/资源泄漏、主题/依赖冲突。</li>
+    <li><span class="k">安全默认开启</span>：WebView 安全基线、最小权限、最小数据采集、日志不泄露敏感信息。</li>
+    <li><span class="k">可观测与可降级</span>：失败要有事件/错误码；能退化到“不开启/不弹窗/不通知”。</li>
+  </ul>
+  <div class="small muted">注：`websdk/` 目录仅供参考，本次审计不要求 Android 代码直接引用其中 JS 文件（且不应引用）。</div>
+</div>
+
+<div class="card toc">
+  <div class="k">目录</div>
+  <ul>
+    <li><a href="#scope">1. 审计范围与方法</a></li>
+    <li><a href="#arch">2. SDK 架构与关键链路（宿主影响面）</a></li>
+    <li><a href="#summary">3. 总体结论（风险分级）</a></li>
+    <li><a href="#findings">4. 发现清单（含证据、影响、建议、状态）</a></li>
+    <li><a href="#completion">5. 功能完成度核对（对照公开 API）</a></li>
+    <li><a href="#quality">6. 代码规范/冗余/注释清晰度评估</a></li>
+    <li><a href="#todo">7. 下一步落地清单（按优先级）</a></li>
+  </ul>
+</div>
+
+<h2 id="scope">1. 审计范围与方法</h2>
+<div class="card">
+  <div class="k">范围</div>
+  <ul>
+    <li><span class="k">Android SDK</span>：`HelpBot/` 模块（AAR）。</li>
+    <li><span class="k">Demo</span>：`app/` 仅用于验证调用方式（不作为 SDK 质量的最终标准）。</li>
+    <li><span class="k">WebSDK</span>：`websdk/` 不在 Android 代码中引用，仅作为“约定接口/行为”参考。</li>
+  </ul>
+  <div class="k">方法</div>
+  <ul>
+    <li>静态审计：WebView/JS 桥、组件暴露、加密存储、线程池、通知、隐私采集、异常兜底。</li>
+    <li>SDK 规范审计：对外 API 是否完整、可配置、可降级、不会覆写宿主环境。</li>
+  </ul>
+</div>
+
+<h2 id="arch">2. SDK 架构与关键链路（宿主影响面）</h2>
+<div class="card">
+  <div class="k">关键链路（从宿主调用到 WebSDK）</div>
+  <ol>
+    <li>`HelpBot.installAsync/install`：保存 `HelpBotConfig` → 初始化 `HelpBotContext` → 预加载 `WebView`。</li>
+    <li>`HelpBot.showConversation`：启动 `HelpBotActivity`，由 `HelpBotWebViewSession.attachToActivity` 接管预加载 WebView 展示。</li>
+    <li>`HelpBotWebViewHelper.initWebView`：配置 WebSettings 安全项 → 注入 `ChatToNativeBridge`（`@JavascriptInterface`） → 加载 `SDKUrls.WEBCHAT_INDEX` → `onPageFinished` 注入 loader.js。</li>
+    <li>WebSDK → Native：通过 `HelpBotNativeAndroid.*` JS 接口回调（事件、SSE 消息摘要等）。</li>
+  </ol>
+  <div class="small muted">宿主影响面主要集中在：Activity 主题/依赖、WebView 创建与生命周期、JS 桥暴露面、远端脚本来源（供应链）、通知与权限、存储与隐私采集、日志行为。</div>
+</div>
+
+<h2 id="summary">3. 总体结论（风险分级）</h2>
+<div class="card">
+  <div class="k">结论概览</div>
+  <ul>
+    <li><span class="pill p0">P0</span> 已发现并修复 2 项会直接影响宿主稳定/安全的关键问题（见下文“已修复”）。</li>
+    <li><span class="pill p1">P1</span> 已发现并修复 4 项高优先级问题；仍有若干“需产品/服务端/架构协同”的风险点待落地。</li>
+    <li><span class="pill p2">P2</span> 存在若干工程化/规范化问题（代码冗余、接口空实现、命名与包名、注释一致性）。</li>
+  </ul>
+  <div class="k">分级规则（简版）</div>
+  <ul class="small">
+    <li><span class="pill p0">P0</span>：可导致宿主崩溃/明显安全事故/严重供应链风险，且默认路径可触达。</li>
+    <li><span class="pill p1">P1</span>：高风险安全/隐私/兼容问题，或易引发线上事故，具备明确触发条件。</li>
+    <li><span class="pill p2">P2</span>：中低风险，偏工程质量/可维护性/长期隐患。</li>
+  </ul>
+</div>
+
+<h2 id="findings">4. 发现清单（含证据、影响、建议、状态）</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:84px;">级别</th>
+      <th style="width:220px;">问题</th>
+      <th>证据（文件/片段）</th>
+      <th style="width:220px;">影响</th>
+      <th style="width:220px;">建议/修复状态</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="pill p0">P0</span></td>
+      <td><b>WebChat/loader URL 硬编码 dev 域名</b></td>
+      <td>
+        <div class="small">
+          原行为：WebView 实际加载由 `SDKUrls.WEBCHAT_INDEX/WEBCHAT_LOADER_JS` 决定，且曾硬编码 `dev-bot-server...`。<br/>
+          现修复：install 阶段根据 `HelpBotConfig.domain` 动态生成 URL。
+        </div>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/HelpBot.java
+// installInternal()
+SDKUrls.updateFromDomain(config.getDomain());</pre>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/utils/SDKUrls.java
+public static void updateFromDomain(String normalizedDomain) { ... }</pre>
+      </td>
+      <td>
+        <ul class="small">
+          <li>上线时可能加载错误环境（dev/staging），导致不可控行为。</li>
+          <li>供应链面扩大：加载远端脚本来源不受宿主配置约束。</li>
+          <li>域名白名单与 `baseURL` 不一致，安全策略易失效。</li>
+        </ul>
+      </td>
+      <td>
+        <div class="small"><span class="pill ok">已修复</span>：`SDKUrls.updateFromDomain()` 并在 `installInternal` 调用。</div>
+        <div class="small muted">建议：后续进一步支持“版本路径/全量 URL”可配置，并做同源校验。</div>
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p0">P0</span></td>
+      <td><b>SDK Activity 未指定主题，可能导致宿主直接崩溃</b></td>
+      <td>
+        <div class="small">
+          `HelpBotActivity` 继承 `AppCompatActivity`，若宿主未使用兼容主题，启动可能抛异常：<br/>
+          <span class="muted">“You need to use a Theme.AppCompat theme ...”</span>
+        </div>
+        <pre>HelpBot/src/main/AndroidManifest.xml
+android:theme="@style/HelpBotTheme"</pre>
+        <pre>HelpBot/src/main/res/values/styles.xml
+&lt;style name="HelpBotTheme" parent="Theme.AppCompat.Light.NoActionBar"&gt; ...</pre>
+      </td>
+      <td class="small">
+        宿主一旦调用 `HelpBot.showConversation()` 启动该 Activity，即存在直接崩溃风险（依赖宿主主题设置）。
+      </td>
+      <td class="small">
+        <span class="pill ok">已修复</span>：SDK 自带 `HelpBotTheme` 并在 Manifest 绑定，避免依赖宿主主题。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td><b>SDK Activity 强制初始化 Logger（会覆盖宿主日志系统）</b></td>
+      <td>
+        <div class="small">
+          SDK 作为依赖库不应在 Activity 生命周期内覆写宿主 Logger。现已改为“仅在未初始化时设置”，且默认随 debugMode。
+        </div>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/log/HBlogger.java
+public static synchronized void initLoggerIfAbsent(IHBLogger externalLogger) { ... }</pre>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/activity/HelpBotActivity.java
+HBlogger.initLoggerIfAbsent(new HelpBotLogger(HelpBot.isDebugMode()));</pre>
+      </td>
+      <td class="small">
+        可能导致宿主日志体系被污染/敏感信息输出策略变化；属于“SDK 越权影响宿主环境”。
+      </td>
+      <td class="small">
+        <span class="pill ok">已修复</span>：引入 `initLoggerIfAbsent`，SDK 不再强行覆盖宿主 Logger。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td><b>fullPrivacyMode 配置存在但未严格生效（隐私最小化）</b></td>
+      <td>
+        <div class="small">
+          `reportSystemInfoToServer()` 原本默认上报 device_id、carrier、网络、电量等。现按 `config.fullPrivacyMode` 最小化上报字段。
+        </div>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/HelpBot.java
+final boolean privacyMode = (config != null) && config.isFullPrivacyMode();
+if (!privacyMode) { meta.put("device_id", ...); ... } else { meta.put("full_privacy_mode", true); }</pre>
+      </td>
+      <td class="small">
+        可能触发隐私合规问题（设备标识/运营商/网络状态/电量等），并且与文档承诺不一致。
+      </td>
+      <td class="small">
+        <span class="pill ok">已修复</span>：按隐私模式减少字段。<br/>
+        <span class="muted">建议：明确“隐私模式”定义，补充服务端字段容错。</span>
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td><b>enableSseNotification() 空实现</b></td>
+      <td>
+        <div class="small">SDK 对外 API 存在但不生效，会误导宿主集成与线上行为。</div>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/HelpBot.java
+private static volatile Boolean sseNotificationEnabledOverride;
+public static void enableSseNotification(boolean enable) { sseNotificationEnabledOverride = enable; }
+public static boolean isSseNotificationEnabled() { ... }</pre>
+      </td>
+      <td class="small">
+        宿主以为关闭通知但仍可能触发通知逻辑（或相反），属于“可控性缺失”。
+      </td>
+      <td class="small">
+        <span class="pill ok">已修复</span>：加入运行时 override，不破坏 config 不可变特性。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td><b>evaluateJavascript 调用日志可能包含敏感信息</b></td>
+      <td>
+        <div class="small">
+          例如 setToken/meta 等 JS 字符串可能包含隐私/设备信息。现已在非 Debug 模式不打印完整 JS。
+        </div>
+        <pre>HelpBot/src/main/java/com/example/HelpBot/HelpBot.java
+if (isDebugMode()) { HBlogger.d(TAG, apiName + " 已调用: " + js); }
+else { HBlogger.d(TAG, apiName + " 已调用"); }</pre>
+      </td>
+      <td class="small">
+        宿主若开启日志采集（或三方崩溃/日志 SDK），可能意外采集敏感信息。
+      </td>
+      <td class="small">
+        <span class="pill ok">已修复</span>：release 默认不输出完整 JS；debug 可保留排障能力。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p1">P1</span></td>
+      <td><b>WebView JS 桥暴露面较大（需进一步收敛）</b></td>
+      <td class="small">
+        `ChatToNativeBridge` 暴露多处 `@JavascriptInterface` 方法；已做部分输入大小限制与 try-catch，但仍建议：
+        <ul>
+          <li>事件名白名单（仅允许 SDK 定义事件）</li>
+          <li>接口调用限流（避免 DoS / UI 线程阻塞）</li>
+          <li>升级为更安全的消息机制（如 AndroidX WebKit 的 WebMessageListener，具备来源限制能力）</li>
+        </ul>
+      </td>
+      <td class="small">
+        远端页面一旦发生 XSS 或供应链被污染，JS 可调用桥接口影响宿主（通知、事件、存储等）。
+      </td>
+      <td class="small">
+        <span class="pill p1">待落地</span>：属于架构级加强，建议作为下一迭代重点。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p2">P2</span></td>
+      <td><b>未显式处理 SSL 错误回调（安全与可观测性）</b></td>
+      <td class="small">
+        当前 `WebViewClient` 未覆盖 `onReceivedSslError`。系统默认行为通常会取消加载，但缺少 SDK 事件上报与可观测性。建议：
+        <ul>
+          <li>显式 `handler.cancel()`，并通过 `EventProxy` 派发 `WEBVIEW_SSL_ERROR`</li>
+          <li>提供宿主可配置的证书策略（默认严格，允许企业内网按需）</li>
+        </ul>
+      </td>
+      <td class="small">弱网/劫持/证书异常时，宿主只能看到“打不开”，定位困难。</td>
+      <td class="small"><span class="pill p2">待落地</span></td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p2">P2</span></td>
+      <td><b>API 21-22 加密存储退化方案安全性不足</b></td>
+      <td class="small">
+        `EncryptedStorage` 在 API 21-22 会将 AES 主密钥以 Base64 形式存入 SharedPreferences（等价明文）。建议：
+        <ul>
+          <li>默认在 API&lt;23 禁用持久化敏感数据（仅内存），或使用更强的 key-wrapping 方案</li>
+          <li>在文档中明确低版本行为差异与风险</li>
+        </ul>
+      </td>
+      <td class="small">主要是安全/合规风险，不一定导致宿主崩溃，但会影响 SDK 安全评级。</td>
+      <td class="small"><span class="pill p2">待落地</span></td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p2">P2</span></td>
+      <td><b>对外 API 完整性：FAQ 相关接口为 TODO</b></td>
+      <td class="small">
+        `HelpBot.showFAQs/showFAQSection/showSingleFAQ` 目前返回 success 但未实现逻辑，会误导宿主判断“功能已可用”。
+      </td>
+      <td class="small">功能缺失/不可预期，影响集成质量与对外承诺。</td>
+      <td class="small">
+        <span class="pill p2">待落地</span>：至少应返回明确错误码（如 NOT_IMPLEMENTED），或尽快实现。
+      </td>
+    </tr>
+
+    <tr>
+      <td><span class="pill p2">P2</span></td>
+      <td><b>代码规范与可维护性：历史遗留命名/空实现/注释不一致</b></td>
+      <td class="small">
+        多处存在 Helpshift/legacy 命名、注释块大量注释掉、空实现（例如 `ChatEventsHandler`）。
+        这类问题不一定立即导致崩溃，但会显著降低 SDK 可维护性与审计可读性。
+      </td>
+      <td class="small">后续迭代成本增大、缺陷定位困难、对外 SDK 形象与可信度下降。</td>
+      <td class="small"><span class="pill p2">待治理</span>：建议做一次“SDK 化清理重构”（不改行为）。</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="completion">5. 功能完成度核对（对照公开 API）</h2>
+<div class="card">
+  <div class="k">对外 API 核对结果</div>
+  <ul>
+    <li><span class="pill ok">已具备</span>：install/installAsync、login/loginAsync、logout/logoutAsync、showConversation、updateSDKMeta/updateCustomMeta、add/removeIssueTags、reportSystemInfoToServer、closeSession、destroy、事件监听（EventProxy）。</li>
+    <li><span class="pill p2">未完成</span>：FAQ 相关 3 个接口存在 TODO（建议不要返回 success）。</li>
+    <li><span class="pill p2">缺失/不一致</span>：文档提到的 enableLogging（对外 API）在 Android `HelpBot` 主入口中未看到对应实现（需补齐或修正文档）。</li>
+  </ul>
+  <div class="small muted">备注：SSE 通知开关 `enableSseNotification()` 已修复为可立即生效；隐私模式 `fullPrivacyMode` 已在系统信息上报路径生效。</div>
+</div>
+
+<h2 id="quality">6. 代码规范/冗余/注释清晰度评估</h2>
+<div class="card">
+  <div class="k">符合项</div>
+  <ul>
+    <li>大量关键路径已使用 try-catch 包裹，避免异常外溢影响宿主。</li>
+    <li>WebView 安全基线较完整：禁 file/content、禁混合内容、HTTPS 白名单、SafeBrowsing（26+）。</li>
+    <li>`HBlogger` 具备基础脱敏能力，且支持外部注入 Logger。</li>
+  </ul>
+  <div class="k">不符合/待改进项</div>
+  <ul>
+    <li><span class="k">命名与包名</span>：`com.example.*`、`storeage` 拼写等不符合生产级 SDK 规范（建议使用公司域名与统一前缀，避免与宿主/其它 SDK 冲突）。</li>
+    <li><span class="k">冗余与空实现</span>：存在大量被注释掉的历史代码与空方法（`ChatEventsHandler` 等），建议清理或补齐实现。</li>
+    <li><span class="k">注释一致性</span>：部分文件 JavaDoc/中文注释较完整，但也有不少“无注释/注释与行为不一致”的点（例如文档宣称 enableLogging）。</li>
+  </ul>
+</div>
+
+<h2 id="todo">7. 下一步落地清单（按优先级）</h2>
+<div class="card">
+  <ol>
+    <li><span class="pill p0">P0</span>（已完成）确认上线配置：由宿主 domain 驱动 WebChat/loader URL；移除所有 dev 默认值用于生产构建。</li>
+    <li><span class="pill p1">P1</span> JS 桥进一步收敛：事件白名单 + 调用限流；可选升级为 WebMessageListener（带来源限制）。</li>
+    <li><span class="pill p1">P1</span> 网络安全增强：可选证书 Pinning/域名 Pinning（默认关闭，企业按需）。</li>
+    <li><span class="pill p2">P2</span> FAQ 接口要么实现要么返回明确错误码（NOT_IMPLEMENTED），避免误导宿主。</li>
+    <li><span class="pill p2">P2</span> 低版本加密存储策略明确化（API21-22）：默认不落盘或采用更强方案。</li>
+    <li><span class="pill p2">P2</span> SDK 化清理：统一命名/包名、删掉 dead code、补齐关键注释与文档一致性。</li>
+  </ol>
+</div>
+
+<div class="hr"></div>
+<div class="small muted">
+  报告生成位置：<code>docs/HelpBot_SDK_深度安全稳定审计报告_2025-12-17.html</code><br/>
+  如需我继续：可以在下一步把“JS 桥白名单/限流 + SSL 错误事件 + FAQ 明确错误码 + 低版本加密存储策略”按 P1/P2 逐项改成可发布版本。
+</div>
+
+</body>
+</html>
+
+

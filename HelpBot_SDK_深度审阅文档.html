@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpBot SDK 深度审阅与接口文档</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+        }
+
+        h1 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+
+        h2 {
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+            background-color: #e8f4fc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        h3 {
+            color: #2980b9;
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+            color: #c7254e;
+        }
+
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .toc {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            margin-bottom: 30px;
+        }
+
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .toc ul ul {
+            padding-left: 20px;
+        }
+
+        .toc a {
+            text-decoration: none;
+            color: #3498db;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .api-signature {
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Consolas, monospace;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>HelpBot SDK 深度审阅与开发者文档</h1>
+
+    <div class="toc">
+        <h3>目录</h3>
+        <ul>
+            <li><a href="#overview">1. 概述</a></li>
+            <li><a href="#integration">2. 快速集成</a>
+                <ul>
+                    <li><a href="#install">2.1 初始化 (Install)</a></li>
+                    <li><a href="#screen-adaptation">2.2 屏幕适配与沉浸式体验</a></li>
+                </ul>
+            </li>
+            <li><a href="#api-reference">3. 接口详解 (API Reference)</a>
+                <ul>
+                    <li><a href="#api-auth">3.1 用户认证 (Authentication)</a></li>
+                    <li><a href="#api-conversation">3.2 会话管理 (Conversation)</a></li>
+                    <li><a href="#api-faq">3.3 帮助中心 (FAQs)</a></li>
+                    <li><a href="#api-meta">3.4 元数据管理 (Metadata)</a></li>
+                    <li><a href="#api-events">3.5 事件监听 (Events)</a></li>
+                </ul>
+            </li>
+            <li><a href="#configuration">4. 配置说明 (Configuration)</a></li>
+            <li><a href="#error-codes">5. 错误码 (Error Codes)</a></li>
+            <li><a href="#review-report">6. 深度审阅报告 (Deep Review Findings)</a></li>
+        </ul>
+    </div>
+
+    <h2 id="overview">1. 概述</h2>
+    <p>HelpBot SDK 是一套专为 Android 应用设计的高级客服集成方案。它基于高效的 WebView 架构，提供了包括实时会话、智能 FAQ、工单管理等全方位客服功能。SDK
+        在设计上严格遵循安全性、稳定性和高效性原则，采用了 MVC 架构与事件驱动模式，确保与宿主应用的无缝集成。</p>
+
+    <div class="success">
+        <strong>核心特性：</strong>
+        <ul>
+            <li><strong>极速启动</strong>：采用资源预加载与后台初始化策略，秒开对话窗口。</li>
+            <li><strong>安全可靠</strong>：全链路 HTTPS 通信，敏感数据（如 Token）加密存储，支持完全隐私模式。</li>
+            <li><strong>体验优秀</strong>：完美适配全面屏、折叠屏及 Pad 大屏，支持沉浸式状态栏与深色模式。</li>
+            <li><strong>开发友好</strong>：统一的异步回调接口（<code>HelpBotCallback</code>）与详尽的错误码体系。</li>
+        </ul>
+    </div>
+
+    <h2 id="integration">2. 快速集成</h2>
+
+    <h3 id="install">2.1 初始化 (Install)</h3>
+    <p>在使用 SDK 任何功能之前，必须先在 <code>Application</code> 的 <code>onCreate</code> 中进行初始化。初始化过程是异步的，不会阻塞主线程。</p>
+
+    <div class="api-signature">
+        public static void install(@NonNull Context application, @NonNull HelpBotConfig config, @Nullable
+        HelpBotInitCallback callback)
+    </div>
+
+    <p><strong>参数说明：</strong></p>
+    <ul>
+        <li><code>application</code>: 应用上下文。</li>
+        <li><code>config</code>: SDK 配置对象，通过 <code>HelpBotConfig.Builder</code> 构建。</li>
+        <li><code>callback</code>: 初始化结果回调（可选）。SDK 内部会自动处理重试，建议关注 <code>onSuccess</code> 即可。</li>
+    </ul>
+
+    <p><strong>示例代码：</strong></p>
+    <pre><code>HelpBotConfig config = new HelpBotConfig.Builder()
+    .channelId("YOUR_CHANNEL_ID")
+    .domain("helpbot.example.com") // 自动补全 https://
+    .build();
+
+HelpBot.install(this, config, new HelpBotInitCallback() {
+    @Override
+    public void onSuccess() {
+        Log.d("App", "HelpBot SDK 初始化成功");
+    }
+
+    @Override
+    public void onFailure(HelpBotErrorCode errorCode, String errorMessage) {
+        Log.e("App", "初始化失败: " + errorMessage);
+    }
+});</code></pre>
+
+    <h3 id="screen-adaptation">2.2 屏幕适配与沉浸式体验</h3>
+    <p>SDK 内置了 <code>HelpBotActivity</code>，它自动处理了以下屏幕适配逻辑，无需宿主额外配置：</p>
+    <ul>
+        <li><strong>沉浸式状态栏</strong>：自动适配刘海屏、挖孔屏，内容避让系统栏。</li>
+        <li><strong>大屏适配</strong>：在 Pad 或折叠屏展开态下，自动限制内容最大宽度并居中显示，提供更好的阅读体验。</li>
+        <li><strong>键盘避让</strong>：智能处理软键盘弹出，防止输入框被遮挡。</li>
+    </ul>
+
+    <h2 id="api-reference">3. 接口详解 (API Reference)</h2>
+
+    <h3 id="api-auth">3.1 用户认证 (Authentication)</h3>
+    <p>为了保护用户数据安全，HelpBot 强制要求使用身份验证Token。</p>
+
+    <h4>登录 (Login)</h4>
+    <div class="api-signature">
+        public static void login(@NonNull String identitiesJWT, @Nullable Map&lt;String, Object&gt; loginConfig,
+        @Nullable HelpBotCallback&lt;Void&gt; callback)
+    </div>
+    <ul>
+        <li><code>identitiesJWT</code>: 由您的后端服务器签发的 JWT Token。</li>
+        <li><code>loginConfig</code>: 登录附加配置（可选）。</li>
+    </ul>
+
+    <h4>登出 (Logout)</h4>
+    <div class="api-signature">
+        public static void logoutAsync(@Nullable HelpBotCallback&lt;Void&gt; callback)
+    </div>
+    <p>清除本地缓存的 Token 和会话状态。建议在用户退出 App 登录时调用。</p>
+
+    <h3 id="api-conversation">3.2 会话管理 (Conversation)</h3>
+
+    <h4>显示会话窗口</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; showConversation(@NonNull Context context)
+    </div>
+    <p>启动客服界面。如果 SDK 尚未登录，将返回错误。多次调用会自动恢复现有界面。</p>
+
+    <h4>发送消息 (纯文本)</h4>
+    <div class="api-signature">
+        public static void sendMessageAsync(@NonNull String message, @Nullable HelpBotCallback&lt;Map&lt;String,
+        Object&gt;&gt; callback)
+    </div>
+    <p>通过代码向当前会话发送一条文本消息。支持 async/await 机制确保发送成功。</p>
+
+    <h4>获取历史消息</h4>
+    <div class="api-signature">
+        public static void getHistoryMessagesAsync(@Nullable HelpBotCallback&lt;Map&lt;String, Object&gt;&gt; callback)
+    </div>
+
+    <h3 id="api-faq">3.3 帮助中心 (FAQs)</h3>
+    <p>SDK 提供了直接打开 FAQ 页面的能力，支持参数透传。</p>
+
+    <h4>显示 FAQ 首页</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; showFAQs(@NonNull Context context, @NonNull Map&lt;String, Object&gt;
+        configMap)
+    </div>
+
+    <h4>显示特定 FAQ 分组</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; showFAQSection(@NonNull Context context, @NonNull String
+        sectionPublishId, ...)
+    </div>
+
+    <h4>显示单篇 FAQ 文章</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; showSingleFAQ(@NonNull Context context, @NonNull String
+        questionPublishId, ...)
+    </div>
+
+    <h3 id="api-meta">3.4 元数据管理 (Metadata)</h3>
+    <p>通过元数据，您可以将用户信息（如 VIP 等级、应用版本）同步给客服系统，方便客服人员精准服务。</p>
+
+    <h4>更新 SDK 元数据 (System Info)</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; updateSDKMeta(@NonNull Map&lt;String, Object&gt; meta)
+    </div>
+    <p>通常由 SDK 内部自动在 <code>showConversation</code> 时上报系统信息（电量、网络、OS 版本等），但也允许宿主手动补充。</p>
+
+    <h4>更新自定义元数据 (User Info)</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; updateCustomMeta(@NonNull Map&lt;String, Object&gt; customMeta)
+    </div>
+    <p>示例：<code>{"vip_level": "gold", "register_date": "2023-01-01"}</code></p>
+
+    <h4>管理 Issue 标签</h4>
+    <div class="api-signature">
+        public static HelpBotResult&lt;Void&gt; addIssueTags(@NonNull ArrayList&lt;String&gt; tags)
+        public static HelpBotResult&lt;Void&gt; removeIssueTags(@NonNull ArrayList&lt;String&gt; tags)
+    </div>
+
+    <h3 id="api-events">3.5 事件监听 (Events)</h3>
+    <p>监听 SDK 内部发生的各类事件（如会话开始、收到新消息、用户评价提交）。</p>
+
+    <div class="api-signature">
+        public static void setHelpBotEventsListener(@Nullable HelpBotEventsListener listener)
+    </div>
+
+    <p><strong>常见事件类型 (HelpBotEvent):</strong></p>
+    <ul>
+        <li><code>CONVERSATION_START</code>: 会话开始</li>
+        <li><code>MESSAGE_ADD</code>: 新消息到达</li>
+        <li><code>CSAT_SUBMIT</code>: 用户提交了满意度评价</li>
+        <li><code>USER_AUTHENTICATION_FAILURE</code>: 用户认证失败（需处理 Token 刷新逻辑）</li>
+    </ul>
+
+    <h2 id="configuration">4. 配置说明 (Configuration)</h2>
+    <p><code>HelpBotConfig</code> 提供了一系列构建方法来定制 SDK 行为。</p>
+    <table>
+        <tr>
+            <th>方法</th>
+            <th>说明</th>
+            <th>默认值</th>
+        </tr>
+        <tr>
+            <td><code>channelId(String)</code></td>
+            <td>渠道 ID (必填)</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td><code>domain(String)</code></td>
+            <td>服务域名 (必填)，自动校验 HTTPS</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td><code>fullPrivacyMode(boolean)</code></td>
+            <td>完全隐私模式。开启后 SDK 将只上报最基础的运行数据。</td>
+            <td>false</td>
+        </tr>
+        <tr>
+            <td><code>enableSseNotification(boolean)</code></td>
+            <td>是否启用 SSE 长连接通知。</td>
+            <td>true</td>
+        </tr>
+        <tr>
+            <td><code>initTimeout(int)</code></td>
+            <td>初始化超时时间 (ms)</td>
+            <td>30000</td>
+        </tr>
+    </table>
+
+    <h2 id="error-codes">5. 错误码 (Error Codes)</h2>
+    <p>SDK 使用 <code>HelpBotErrorCode</code> 枚举统一管理错误，确保错误处理逻辑清晰。</p>
+    <table>
+        <tr>
+            <th>Code</th>
+            <th>枚举名</th>
+            <th>描述</th>
+        </tr>
+        <tr>
+            <td>1000</td>
+            <td><code>SDK_NOT_INITIALIZED</code></td>
+            <td>试图在未 install 的情况下调用 API。</td>
+        </tr>
+        <tr>
+            <td>1003</td>
+            <td><code>CONTEXT_NULL</code></td>
+            <td>传入的 Context 为空。</td>
+        </tr>
+        <tr>
+            <td>1100</td>
+            <td><code>WEBVIEW_UNAVAILABLE</code></td>
+            <td>系统 WebView 组件缺失或被禁用（常见于定制系统）。</td>
+        </tr>
+        <tr>
+            <td>1200</td>
+            <td><code>NETWORK_UNAVAILABLE</code></td>
+            <td>设备无网络连接，无法初始化 WebSDK。</td>
+        </tr>
+        <tr>
+            <td>1300</td>
+            <td><code>INVALID_TOKEN</code></td>
+            <td>提供的 JWT Token 无效。</td>
+        </tr>
+        <tr>
+            <td>1301</td>
+            <td><code>TOKEN_EXPIRED</code></td>
+            <td>Token 已过期，请刷新 Token。</td>
+        </tr>
+        <tr>
+            <td>1304</td>
+            <td><code>MISSING_PRE_GENERATED_TOKEN</code></td>
+            <td>生产环境必须提供预生成 Token。</td>
+        </tr>
+    </table>
+
+    <h2 id="review-report">6. 深度审阅报告 (Deep Review Findings)</h2>
+
+    <p>作为高级 Android 架构师，对 HelpBot SDK 代码库进行了全面深度审阅，评估维度涵盖代码规范、安全性、兼容性与架构设计。</p>
+
+    <h3>6.1 总体评价</h3>
+    <div class="success">
+        <strong>优秀 (Excellent)</strong>
+        <p>代码结构清晰，逻辑严密，达到了商业级 SDK 的交付标准。采用了现代化的 Android 开发实践，特别是在线程安全、异常处理和组件生命周期管理上表现出色。</p>
+    </div>
+
+    <h3>6.2 详细评审点</h3>
+
+    <h4>✅ 安全性 (Security)</h4>
+    <ul>
+        <li><strong>Token 安全</strong>：使用了 <code>EncryptedStorage</code> 对身份 Token 进行加密存储，防止 Root 设备下的轻易窃取。</li>
+        <li><strong>WebView 安全</strong>：严格限制了 WebView 的访问域，仅通过 <code>HelpBotConfig</code> 允许的 HTTPS 域名加载，杜绝了中间人攻击和任意 URL
+            加载风险。</li>
+        <li><strong>API 可见性</strong>：<code>HelpBotActivity</code> 中的 <code>webView</code> 字段被正确限制为 package-private，仅允许
+            SDK 内部访问，防止宿主通过反射篡改 WebView 状态。</li>
+        <li><strong>隐私模式</strong>：实现了 <code>FullPrivacyMode</code>，在用户要求时能严格控制数据采集范围。</li>
+    </ul>
+
+    <h4>✅ 稳定性 (Stability)</h4>
+    <ul>
+        <li><strong>异常隔离</strong>：所有对外接口均包裹在 <code>try-catch</code> 块中，确保 SDK 内部异常绝不会导致宿主应用崩溃 (Crash)。</li>
+        <li><strong>线程管理</strong>：使用单例线程池 <code>HelpBotThreadPool</code> 管理后台任务，避免了线程爆炸风险。所有 WebView 操作强制在 UI
+            线程执行，规避了多线程操作视图的异常。</li>
+        <li><strong>状态防抖</strong>：<code>install</code> 和 <code>login</code> 接口使用了 atomic 标志位（如
+            <code>installInProgress</code>），有效防止了并发调用导致的状态错乱。</li>
+    </ul>
+
+    <h4>✅ 兼容性 (Compatibility)</h4>
+    <ul>
+        <li><strong>Android 版本支持</strong>：代码中包含了针对 Android O (API 26) 及以上版本的适配检查（如 <code>WebView</code>
+            包检测），同时保留了对低版本的向下兼容逻辑。</li>
+        <li><strong>屏幕适配</strong>：通过 <code>ViewCompat.setOnApplyWindowInsetsListener</code> 实现了完善的 Edge-to-Edge
+            适配，兼容了刘海屏、水滴屏和折叠屏设备。</li>
+        <li><strong>WebView 容错</strong>：在系统 WebView 不可用（被卸载或禁用）的极端情况下，SDK
+            能正确识别并返回明确的错误码（<code>WEBVIEW_UNAVAILABLE</code>），而非抛出运行时异常。</li>
+    </ul>
+
+    <h4>✅ 代码规范 (Code Quality)</h4>
+    <ul>
+        <li><strong>命名规范</strong>：变量、方法和类名严格遵循驼峰命名法，语义清晰。</li>
+        <li><strong>注释详尽</strong>：关键逻辑（如 <code>loginInternal</code> 的重试机制）配有详细的中文 JavaDoc 和注释。</li>
+        <li><strong>日志规范</strong>：统一使用 <code>HBlogger</code> wrapper，支持按需关闭日志（Production 环境默认关闭），避免日志泄露敏感信息。</li>
+    </ul>
+
+    <h3>6.3 改进建议 (Minor Suggestions)</h3>
+    <ul>
+        <li><strong>FAQ 功能增强</strong>：目前的 FAQ 功能是跳转到外部 URL，建议后续版本支持 App 内 WebView 直接预览，体验更闭环。</li>
+        <li><strong>SseNotification 配置</strong>：虽然已有开关，但建议增加心跳机制的可配置性，以适应不同网络环境下的保活需求。</li>
+    </ul>
+
+</body>
+
+</html>
