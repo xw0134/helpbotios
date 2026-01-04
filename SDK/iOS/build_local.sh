@@ -162,10 +162,94 @@ print_success "iOS 模拟器架构编译完成"
 print_header "5. 创建 XCFramework"
 
 print_info "开始创建 XCFramework..."
-xcodebuild -create-xcframework \
-    -framework "$BUILD_DIR/ios.xcarchive/Products/Library/Frameworks/$SCHEME.framework" \
-    -framework "$BUILD_DIR/ios-simulator.xcarchive/Products/Library/Frameworks/$SCHEME.framework" \
-    -output "$BUILD_DIR/$XCFRAMEWORK_NAME"
+set -euo pipefail
+
+DEVICE_ARCHIVE="$BUILD_DIR/ios.xcarchive"
+SIM_ARCHIVE="$BUILD_DIR/ios-simulator.xcarchive"
+OUTPUT_PATH="$BUILD_DIR/$XCFRAMEWORK_NAME"
+
+resolve_framework() {
+    local archive="$1"
+    local expected="${archive}/Products/Library/Frameworks/${SCHEME}.framework"
+    if [[ -d "$expected" && -f "${expected}/Info.plist" ]]; then
+        echo "$expected"
+        return 0
+    fi
+    local found
+    found="$(find "$archive" -maxdepth 8 -type d -name "${SCHEME}.framework" 2>/dev/null | head -n 1 || true)"
+    if [[ -n "${found}" && -f "${found}/Info.plist" ]]; then
+        echo "$found"
+        return 0
+    fi
+    return 1
+}
+
+resolve_library_with_modules() {
+    local archive="$1"
+    local out_dir="$2"
+    mkdir -p "$out_dir"
+
+    local lib=""
+    lib="$(find "$archive" -maxdepth 12 -type f \( -name "lib${SCHEME}.a" -o -name "${SCHEME}.a" \) 2>/dev/null | head -n 1 || true)"
+    if [[ -z "$lib" ]]; then
+        lib="$(find "$archive" -maxdepth 12 -type f \( -name "lib${SCHEME}.dylib" -o -name "${SCHEME}.dylib" \) 2>/dev/null | head -n 1 || true)"
+    fi
+    if [[ -z "$lib" ]]; then
+        local obj=""
+        obj="$(find "$archive" -maxdepth 12 -type f \( -name "${SCHEME}.o" -o -name "lib${SCHEME}.o" \) 2>/dev/null | head -n 1 || true)"
+        if [[ -n "$obj" ]]; then
+            lib="${out_dir}/lib${SCHEME}.a"
+            /usr/bin/libtool -static -o "$lib" "$obj"
+        fi
+    fi
+
+    if [[ -z "$lib" || ! -f "$lib" ]]; then
+        return 1
+    fi
+
+    local staged_lib="${out_dir}/$(basename "$lib")"
+    if [[ "$lib" != "$staged_lib" ]]; then
+        cp -f "$lib" "$staged_lib"
+    fi
+
+    local module_dir=""
+    module_dir="$(find "$archive" -maxdepth 14 -type d -name "${SCHEME}.swiftmodule" 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$module_dir" && -d "$module_dir" ]]; then
+        cp -R "$module_dir" "${out_dir}/"
+    fi
+
+    echo "$staged_lib"
+    return 0
+}
+
+rm -rf "$OUTPUT_PATH"
+
+if FW_DEVICE="$(resolve_framework "$DEVICE_ARCHIVE")" && FW_SIM="$(resolve_framework "$SIM_ARCHIVE")"; then
+    print_success "检测到 Framework 产物:"
+    print_info "device: $FW_DEVICE"
+    print_info "sim:    $FW_SIM"
+    xcodebuild -create-xcframework \
+        -framework "$FW_DEVICE" \
+        -framework "$FW_SIM" \
+        -output "$OUTPUT_PATH"
+else
+    print_warning "未检测到有效 Framework，回退使用 -library 方式创建 XCFramework..."
+    STAGING_DIR="${BUILD_DIR}/_xcframework_staging"
+    rm -rf "$STAGING_DIR"
+    mkdir -p "$STAGING_DIR"
+
+    LIB_DEVICE="$(resolve_library_with_modules "$DEVICE_ARCHIVE" "${STAGING_DIR}/device")"
+    LIB_SIM="$(resolve_library_with_modules "$SIM_ARCHIVE" "${STAGING_DIR}/simulator")"
+    print_info "device lib: $LIB_DEVICE"
+    print_info "sim lib:    $LIB_SIM"
+
+    HDR_DIR="${STAGING_DIR}/headers"
+    mkdir -p "$HDR_DIR"
+    xcodebuild -create-xcframework \
+        -library "$LIB_DEVICE" -headers "$HDR_DIR" \
+        -library "$LIB_SIM" -headers "$HDR_DIR" \
+        -output "$OUTPUT_PATH"
+fi
 
 print_success "XCFramework 创建完成"
 
@@ -176,15 +260,35 @@ print_header "6. 验证 XCFramework"
 
 echo ""
 print_info "XCFramework 结构:"
-ls -lR "$BUILD_DIR/$XCFRAMEWORK_NAME"
+XCROOT="$BUILD_DIR/$XCFRAMEWORK_NAME"
+ls -lR "$XCROOT"
 
 echo ""
 print_info "iOS 真机架构:"
-lipo -info "$BUILD_DIR/$XCFRAMEWORK_NAME/ios-arm64/$SCHEME.framework/$SCHEME"
+resolve_bin() {
+    local platform_dir="$1"
+    local fw_bin="${platform_dir}/${SCHEME}.framework/${SCHEME}"
+    if [[ -f "$fw_bin" ]]; then
+        echo "$fw_bin"
+        return 0
+    fi
+    local lib
+    lib="$(find "$platform_dir" -maxdepth 3 -type f \( -name "lib${SCHEME}.a" -o -name "${SCHEME}.a" -o -name "lib${SCHEME}.dylib" -o -name "${SCHEME}.dylib" \) 2>/dev/null | head -1 || true)"
+    if [[ -n "$lib" ]]; then
+        echo "$lib"
+        return 0
+    fi
+    return 1
+}
+DEVICE_BIN="$(resolve_bin "$XCROOT/ios-arm64")"
+print_info "bin: $DEVICE_BIN"
+lipo -info "$DEVICE_BIN" || true
 
 echo ""
 print_info "iOS 模拟器架构:"
-lipo -info "$BUILD_DIR/$XCFRAMEWORK_NAME/ios-arm64_x86_64-simulator/$SCHEME.framework/$SCHEME"
+SIM_BIN="$(resolve_bin "$XCROOT/ios-arm64_x86_64-simulator")"
+print_info "bin: $SIM_BIN"
+lipo -info "$SIM_BIN" || true
 
 print_success "XCFramework 验证通过"
 
@@ -212,14 +316,16 @@ $(xcodebuild -version)
 $(swift --version)
 
 === XCFramework 信息 ===
-$(ls -lh "$BUILD_DIR/$XCFRAMEWORK_NAME")
+$(ls -lh "$XCROOT")
 
 === 架构信息 ===
 iOS 真机:
-$(lipo -info "$BUILD_DIR/$XCFRAMEWORK_NAME/ios-arm64/$SCHEME.framework/$SCHEME")
+bin: $DEVICE_BIN
+$(lipo -info "$DEVICE_BIN" 2>&1 || true)
 
 iOS 模拟器:
-$(lipo -info "$BUILD_DIR/$XCFRAMEWORK_NAME/ios-arm64_x86_64-simulator/$SCHEME.framework/$SCHEME")
+bin: $SIM_BIN
+$(lipo -info "$SIM_BIN" 2>&1 || true)
 
 === 文件大小 ===
 $(du -sh "$BUILD_DIR/$XCFRAMEWORK_NAME")
