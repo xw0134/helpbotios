@@ -82,4 +82,9 @@ public final class HelpBotJsCommand {
         final String safeCb = callbackFnName.trim();
         return "try{var s=HelpBot('getStatus');if(window['" + safeCb + "']){window['" + safeCb + "'](s);}}catch(e){}";
     }
+
+    @NonNull
+    public static String buildWebSdkVersion() {
+        return "HelpBot('close');";
+    }
 }

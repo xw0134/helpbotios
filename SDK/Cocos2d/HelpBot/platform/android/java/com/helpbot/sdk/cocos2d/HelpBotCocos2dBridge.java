@@ -1,19 +1,19 @@
-package com.example.HelpBot.cocos2d;
+package com.helpbot.sdk.cocos2d;
 
 import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.example.HelpBot.HelpBot;
-import com.example.HelpBot.core.HelpBotAuthenticationFailureReason;
-import com.example.HelpBot.core.HelpBotCallback;
-import com.example.HelpBot.core.HelpBotConfig;
-import com.example.HelpBot.core.HelpBotErrorCode;
-import com.example.HelpBot.core.HelpBotEventsListener;
-import com.example.HelpBot.core.HelpBotInitCallback;
-import com.example.HelpBot.core.HelpBotResult;
-import com.example.HelpBot.log.HBlogger;
+import com.helpbot.sdk.HelpBot;
+import com.helpbot.sdk.core.HelpBotAuthenticationFailureReason;
+import com.helpbot.sdk.core.HelpBotCallback;
+import com.helpbot.sdk.core.HelpBotConfig;
+import com.helpbot.sdk.core.HelpBotErrorCode;
+import com.helpbot.sdk.core.HelpBotEventsListener;
+import com.helpbot.sdk.core.HelpBotInitCallback;
+import com.helpbot.sdk.core.HelpBotResult;
+import com.helpbot.sdk.log.HBlogger;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

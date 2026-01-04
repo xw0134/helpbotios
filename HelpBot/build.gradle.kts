@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+// HelpBot Android SDK 版本号（用于 AAR 命名 + BuildConfig.VERSION_NAME）
+val helpBotSdkVersion = "0.1.13"
+
 android {
     namespace = "com.example.HelpBot"
     compileSdk {
@@ -13,8 +16,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
-        // 设置HelpBot版本号
-        version = "0.1.13"
+
+        // 对齐 Android 主入口：BuildConfig.VERSION_NAME（Library 模块默认不会生成 versionName）
+        // 说明：SDK 作为库发布时，需要能在运行时可靠获取 SDK 版本号用于诊断/埋点。
+        buildConfigField("String", "VERSION_NAME", "\"$helpBotSdkVersion\"")
     }
 
     buildTypes {
@@ -44,7 +49,7 @@ android {
         outputs.configureEach {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
             if (output.outputFileName.endsWith(".aar")) {
-                output.outputFileName = "${project.name}-${buildType.name}-${version}.aar"
+                output.outputFileName = "${project.name}-${buildType.name}-$helpBotSdkVersion.aar"
             }
         }
     }

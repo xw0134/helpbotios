@@ -12,7 +12,6 @@ import com.example.HelpBot.core.HelpBotUserLoginEventsListener;
 import com.example.HelpBot.log.HBlogger;
 import com.example.HelpBot.storage.EncryptedStorage;
 import com.example.HelpBot.thread.HelpBotThreadPool;
-import com.example.HelpBot.utils.SDKUrls;
 import com.example.HelpBot.utils.NetworkUtils;
 import com.example.HelpBot.utils.Utils;
 import com.example.HelpBot.web.HelpBotJsCommand;
@@ -44,12 +43,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * HelpBot SDK 主入口类。
- *
  * 设计要点：
  * 1. 仅提供异步 API（SDK 作为依赖库，避免宿主误在主线程调用阻塞接口导致 ANR/死锁）。
  * 2. 统一错误码与回调机制。
  * 3. 线程安全与资源生命周期管理。
- *
  * 线程约束：
  * - SDK 内部所有涉及 WebView/JS 回执等待的逻辑都在后台线程执行。
  */
@@ -156,7 +153,6 @@ public final class HelpBot {
 
     /**
      * 待执行的 showConversation 请求（install/login 未完成时入队）。
-     *
      * 说明：
      * - 只保存 applicationContext，避免持有 Activity 导致泄漏
      */
@@ -235,12 +231,10 @@ public final class HelpBot {
 
     /**
      * 初始化 HelpBot SDK（异步，推荐）
-     * 
      * 此方法会在后台线程执行初始化，不会阻塞主线程。
      * 
      * @param application Application Context（必须）
      * @param config      SDK 配置（必须）
-     * @param callback    初始化回调（可选，建议提供）
      */
     public static void install(@NonNull final Context application,
             @NonNull final HelpBotConfig config) {
@@ -249,7 +243,6 @@ public final class HelpBot {
 
     /**
      * 初始化 HelpBot SDK（兼容需求文档签名：channelId/domain/configMap）。
-     *
      * 说明：
      * - SDK 内 WebChat index/loader 链接已写死，domain 仅作为 WebSDK baseURL（业务域名）使用。
      * - configMap 会被写入 HelpBotConfig.customConfig（供 UI/行为开关读取）。
@@ -314,14 +307,6 @@ public final class HelpBot {
     public static void install(@NonNull final Context application,
             @NonNull final HelpBotConfig config,
             @Nullable final HelpBotInitCallback callback) {
-        if (application == null) {
-            notifyInitFailure(callback, HelpBotErrorCode.CONTEXT_NULL, "Context 不能为 null");
-            return;
-        }
-        if (config == null) {
-            notifyInitFailure(callback, HelpBotErrorCode.INVALID_PARAMETER, "HelpBotConfig 不能为 null");
-            return;
-        }
 
         // install 状态机（强约束）：
         // - install 进行中：拒绝重复调用
@@ -437,7 +422,6 @@ public final class HelpBot {
      * install 结束（成功/失败）后的统一收口处理：
      * - 成功：根据排队请求触发 login/showConversation
      * - 失败：中止排队的 login/showConversation（install 出错直接中止 login/showConversation 执行）
-     *
      * 注意：该方法必须是线程安全的，且不能在锁内触发宿主回调，避免死锁/重入。
      */
     private static void onInstallFinished(final boolean success,
@@ -789,7 +773,6 @@ public final class HelpBot {
      * 用户登录（异步，推荐）
      * 
      * @param identitiesJWT WebSDK 预生成 Token（preGeneratedToken，必须）
-     * 
      *                      说明：生产环境必须由宿主后端生成并下发该 token；测试环境可选 useDevAPI（不建议用于生产）。
      * @param loginConfig   登录配置（可选）
      * @param callback      登录回调（可选）
@@ -962,9 +945,7 @@ public final class HelpBot {
         });
     }
 
-    private static boolean readBooleanFromMap(@Nullable final Map<String, Object> map,
-            @NonNull final String key,
-            final boolean defaultValue) {
+    private static boolean readBooleanFromMap(@Nullable final Map<String, Object> map, @NonNull final String key, final boolean defaultValue) {
         try {
             if (map == null) {
                 return defaultValue;
@@ -991,7 +972,6 @@ public final class HelpBot {
 
     /**
      * WebSDK SDK_READY 到达时的登录确认（供 JSBridge 调用）。
-     * 
      * 说明：即使宿主未显式等待 loginInternal（例如先 login 后 install 的自动补执行），只要 Web 侧完成登录并发出
      * SDK_READY，SDK 也应切换为“已登录确认”状态。
      */
@@ -1089,17 +1069,13 @@ public final class HelpBot {
 
                                 if ("MISSING_PRE_GENERATED_TOKEN".equalsIgnoreCase(code)) {
                                     return HelpBotResult.failure(HelpBotErrorCode.MISSING_PRE_GENERATED_TOKEN,
-                                            (message == null || message.trim().isEmpty())
-                                                    ? "生产环境必须提供 preGeneratedToken。请通过后端 API 生成 token 并传入。"
-                                                    : message);
+                                            message.trim().isEmpty() ? "生产环境必须提供 preGeneratedToken。请通过后端 API 生成 token 并传入。" : message);
                                 }
                                 if ("INVALID_PRE_GENERATED_TOKEN".equalsIgnoreCase(code)) {
                                     return HelpBotResult.failure(HelpBotErrorCode.INVALID_PRE_GENERATED_TOKEN,
-                                            (message == null || message.trim().isEmpty())
-                                                    ? "预生成 token 无效，请检查格式"
-                                                    : message);
+                                            message.trim().isEmpty() ? "预生成 token 无效，请检查格式" : message);
                                 }
-                                if (message != null && !message.trim().isEmpty()) {
+                                if (!message.trim().isEmpty()) {
                                     return HelpBotResult.failure(HelpBotErrorCode.LOGIN_FAILED,
                                             "WebSDK 登录失败: " + message);
                                 }
@@ -1238,9 +1214,6 @@ public final class HelpBot {
      */
     @NonNull
     public static HelpBotResult<Void> showConversation(@NonNull final Context context) {
-        if (context == null) {
-            return HelpBotResult.failure(HelpBotErrorCode.CONTEXT_NULL);
-        }
 
         // install/login 未完成时：showConversation 入队等待（只保留 1 个，避免狂点导致内存增长）
         synchronized (operationLock) {
@@ -1350,7 +1323,6 @@ public final class HelpBot {
 
     /**
      * 隐藏对话窗口（不销毁会话）。
-     *
      * 设计目标：
      * 1. 满足显示/隐藏/任意位置唤起的需求。
      * 2. 隐藏仅关闭 UI Activity，保持 WebViewSession 可复用，使下次唤起更快。
@@ -1391,7 +1363,6 @@ public final class HelpBot {
 
     /**
      * 发送文本消息（异步）。
-     *
      * 对齐 WebSDK：HelpBot('sendMessage', text)
      */
     public static void sendMessageAsync(@NonNull final String message,
@@ -1418,7 +1389,6 @@ public final class HelpBot {
 
     /**
      * 获取历史消息（异步）。
-     *
      * 对齐 WebSDK：HelpBot('getHistoryMessages')
      */
     public static void getHistoryMessagesAsync(@Nullable final HelpBotCallback<Map<String, Object>> callback) {
@@ -1439,7 +1409,6 @@ public final class HelpBot {
 
     /**
      * 分页加载更多历史消息（异步）。
-     *
      * 对齐 WebSDK：HelpBot('loadMoreMessages', limit, offset)
      */
     public static void loadMoreMessagesAsync(final int limit, final int offset,
@@ -1465,7 +1434,6 @@ public final class HelpBot {
 
     /**
      * 获取当前可用 WebView；若不可用则通过 callback 直接返回错误。
-     *
      * 说明：仅用于异步 API（callback 形态），避免重复样板代码。
      */
     @Nullable
@@ -1492,7 +1460,6 @@ public final class HelpBot {
 
     /**
      * 显示 FAQ 主页面
-     * 
      * 说明:直接使用系统浏览器打开 FAQ URL
      * 
      * @param context   上下文对象(必须)
@@ -1503,9 +1470,7 @@ public final class HelpBot {
     @NonNull
     public static HelpBotResult<Void> showFAQs(@NonNull final Context context,
             @NonNull final Map<String, Object> configMap) {
-        if (context == null) {
-            return HelpBotResult.failure(HelpBotErrorCode.CONTEXT_NULL);
-        }
+
         if (!HelpBotContext.verifyInstall()) {
             return HelpBotResult.failure(HelpBotErrorCode.SDK_NOT_INITIALIZED, "SDK 未初始化");
         }
@@ -1540,9 +1505,7 @@ public final class HelpBot {
     public static HelpBotResult<Void> showFAQSection(@NonNull final Context context,
             @NonNull final String sectionPublishId,
             @NonNull final Map<String, Object> configMap) {
-        if (context == null) {
-            return HelpBotResult.failure(HelpBotErrorCode.CONTEXT_NULL);
-        }
+
         if (Utils.isEmpty(sectionPublishId)) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER,
                     "sectionPublishId 不能为空");
@@ -1581,9 +1544,7 @@ public final class HelpBot {
     public static HelpBotResult<Void> showSingleFAQ(@NonNull final Context context,
             @NonNull final String questionPublishId,
             @NonNull final Map<String, Object> configMap) {
-        if (context == null) {
-            return HelpBotResult.failure(HelpBotErrorCode.CONTEXT_NULL);
-        }
+
         if (Utils.isEmpty(questionPublishId)) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER,
                     "questionPublishId 不能为空");
@@ -1693,7 +1654,7 @@ public final class HelpBot {
      */
     public static void setHelpBotEventsListener(@Nullable final HelpBotEventsListener listener) {
         try {
-            // 需求：像 login 一样，install 未完成时入队；只有 install 完成后才真正执行
+            // install 未完成时入队；只有 install 完成后才真正执行
             synchronized (operationLock) {
                 if (installState != InstallState.INSTALLED || !HelpBotContext.isInstalled()) {
                     pendingEventsListenerRequest = new PendingEventsListenerRequest(listener);
@@ -1712,7 +1673,7 @@ public final class HelpBot {
      * 移除事件监听器
      */
     public static void removeHelpBotEventsListener() {
-        // 复用同一语义：install 未完成时入队，install 完成后执行移除
+        // install 未完成时入队，install 完成后执行移除
         setHelpBotEventsListener(null);
     }
 
@@ -1744,9 +1705,31 @@ public final class HelpBot {
      */
     @NonNull
     public static String getSDKVersion() {
-        return "1.0.0";
+        return BuildConfig.VERSION_NAME;
     }
 
+    /**
+     * 获取 WEB SDK 版本
+     * TODO web端未完成接口
+     */
+
+    @NonNull
+    public static String getWEBSDKVersion(){
+        if (!HelpBotContext.verifyInstall()) {
+            HBlogger.w(TAG, "SDK 未初始化");
+            return "unknown";
+        }
+
+        final WebView webView = getActiveWebView();
+        if (webView == null) {
+            return "unknown";
+        }
+
+        final String script = HelpBotJsCommand.buildWebSdkVersion();
+        evaluateOnUi(webView, script, "getWebSdkVersion");
+
+        return "v0.1.4";
+    }
     /**
      * 获取SDK配置
      * 
@@ -1759,7 +1742,6 @@ public final class HelpBot {
 
     /**
      * 是否处于 Debug 模式
-     * 
      * 说明:
      * - Debug 模式由 SDK 编译模式自动决定(BuildConfig.DEBUG)
      * - 宿主应用无法配置此参数,确保生产环境安全
@@ -1781,7 +1763,6 @@ public final class HelpBot {
 
     /**
      * 获取 WebSDK 健康快照（只读）。
-     * 
      * 说明：该方法不触发 JS 执行，仅返回 SDK 监控循环最近一次采样结果，适合宿主做诊断/埋点。
      *
      * @return 健康快照数据（Map），若未安装/未启动监控则返回空 Map。
@@ -1804,7 +1785,7 @@ public final class HelpBot {
      */
     @NonNull
     public static HelpBotResult<Void> updateSDKMeta(@NonNull final Map<String, Object> meta) {
-        if (meta == null || meta.isEmpty()) {
+        if (meta.isEmpty()) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER, "meta 不能为空");
         }
 
@@ -1834,7 +1815,7 @@ public final class HelpBot {
      */
     @NonNull
     public static HelpBotResult<Void> updateCustomMeta(@NonNull final Map<String, Object> customMeta) {
-        if (customMeta == null || customMeta.isEmpty()) {
+        if (customMeta.isEmpty()) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER, "customMeta 不能为空");
         }
 
@@ -1864,7 +1845,7 @@ public final class HelpBot {
      */
     @NonNull
     public static HelpBotResult<Void> addIssueTags(@NonNull final ArrayList<String> tags) {
-        if (tags == null || tags.isEmpty()) {
+        if (tags.isEmpty()) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER, "tags 不能为空");
         }
 
@@ -1894,7 +1875,7 @@ public final class HelpBot {
      */
     @NonNull
     public static HelpBotResult<Void> removeIssueTags(@NonNull final ArrayList<String> tags) {
-        if (tags == null || tags.isEmpty()) {
+        if (tags.isEmpty()) {
             return HelpBotResult.failure(HelpBotErrorCode.INVALID_PARAMETER, "tags 不能为空");
         }
 

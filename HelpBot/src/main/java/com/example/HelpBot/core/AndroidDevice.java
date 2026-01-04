@@ -1,5 +1,6 @@
 package com.example.HelpBot.core;
 
+import com.example.HelpBot.BuildConfig;
 import com.example.HelpBot.log.HBlogger;
 import com.example.HelpBot.utils.ApplicationUtils;
 import com.example.HelpBot.utils.ValuePair;
@@ -32,7 +33,6 @@ import java.util.UUID;
  */
 public class AndroidDevice implements Device {
     private static final String TAG = "AndroidDevice";
-    public static final String LITE_SDK_VERSION = "10.4.0";
     private static final String OS_TYPE = "android";
     private final Context context;
     private final HBPersistentStorage persistentStorage;
@@ -45,7 +45,7 @@ public class AndroidDevice implements Device {
 
     @Override
     public String getSDKVersion() {
-        return LITE_SDK_VERSION;
+        return BuildConfig.VERSION_NAME;
     }
 
     @Override

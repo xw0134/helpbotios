@@ -55,6 +55,8 @@ YourProject/
 
 ```bash
 cp HelpBot-release.aar proj.android/app/libs/
+
+> 提示：本仓库已在 `SDK/Cocos2d/HelpBot-release.aar` 提供了与 Android 主工程同步的 AAR，可直接使用。
 ```
 
 3. **拷贝 Cocos2d Java Bridge（必须）**

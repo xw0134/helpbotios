@@ -33,7 +33,7 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
         return nullptr;
     }
 
-    jclass builderClass = JNIHelper::findClass(env, "com/example/HelpBot/core/HelpBotConfig$Builder");
+    jclass builderClass = JNIHelper::findClass(env, "com/helpbot/sdk/core/HelpBotConfig$Builder");
     if (!builderClass) {
         HBLogger::e(TAG, "buildJavaConfig: 找不到 HelpBotConfig$Builder");
         JNIHelper::checkAndClearException(env);
@@ -45,40 +45,40 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
 
     // channelId/domain 为必填
     jmethodID channelIdMethod = env->GetMethodID(builderClass, "channelId",
-            "(Ljava/lang/String;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(Ljava/lang/String;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     jstring jchannelId = JNIHelper::stringToJstring(env, config.getChannelId());
     builder = env->CallObjectMethod(builder, channelIdMethod, jchannelId);
     env->DeleteLocalRef(jchannelId);
 
     jmethodID domainMethod = env->GetMethodID(builderClass, "domain",
-            "(Ljava/lang/String;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(Ljava/lang/String;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     jstring jdomain = JNIHelper::stringToJstring(env, config.getDomain());
     builder = env->CallObjectMethod(builder, domainMethod, jdomain);
     env->DeleteLocalRef(jdomain);
 
     // fullPrivacyMode
     jmethodID fullPrivacyMethod = env->GetMethodID(builderClass, "fullPrivacyMode",
-            "(Z)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(Z)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     builder = env->CallObjectMethod(builder, fullPrivacyMethod, config.isFullPrivacyMode());
 
     // enableSseNotification
     jmethodID sseMethod = env->GetMethodID(builderClass, "enableSseNotification",
-            "(Z)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(Z)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     builder = env->CallObjectMethod(builder, sseMethod, config.isEnableSseNotification());
 
     // initTimeout
     jmethodID initTimeoutMethod = env->GetMethodID(builderClass, "initTimeout",
-            "(I)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(I)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     builder = env->CallObjectMethod(builder, initTimeoutMethod, config.getInitTimeoutMs());
 
     // webViewLoadTimeout
     jmethodID webViewTimeoutMethod = env->GetMethodID(builderClass, "webViewLoadTimeout",
-            "(I)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(I)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     builder = env->CallObjectMethod(builder, webViewTimeoutMethod, config.getWebViewLoadTimeoutMs());
 
     // useDevApi/companyId/userId/preGeneratedToken
     jmethodID useDevApiMethod = env->GetMethodID(builderClass, "useDevApi",
-            "(Z)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+            "(Z)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
     builder = env->CallObjectMethod(builder, useDevApiMethod, config.isUseDevApi());
 
     if (config.isUseDevApi()) {
@@ -87,14 +87,14 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
 
         if (!companyId.empty()) {
             jmethodID companyIdMethod = env->GetMethodID(builderClass, "companyId",
-                    "(Ljava/lang/String;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+                    "(Ljava/lang/String;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
             jstring jcompanyId = JNIHelper::stringToJstring(env, companyId);
             builder = env->CallObjectMethod(builder, companyIdMethod, jcompanyId);
             env->DeleteLocalRef(jcompanyId);
         }
         if (!userId.empty()) {
             jmethodID userIdMethod = env->GetMethodID(builderClass, "userId",
-                    "(Ljava/lang/String;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+                    "(Ljava/lang/String;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
             jstring juserId = JNIHelper::stringToJstring(env, userId);
             builder = env->CallObjectMethod(builder, userIdMethod, juserId);
             env->DeleteLocalRef(juserId);
@@ -104,7 +104,7 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
     const std::string preToken = config.getPreGeneratedToken();
     if (!preToken.empty()) {
         jmethodID preTokenMethod = env->GetMethodID(builderClass, "preGeneratedToken",
-                "(Ljava/lang/String;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+                "(Ljava/lang/String;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
         jstring jpre = JNIHelper::stringToJstring(env, preToken);
         builder = env->CallObjectMethod(builder, preTokenMethod, jpre);
         env->DeleteLocalRef(jpre);
@@ -114,7 +114,7 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
     const auto customConfig = config.getCustomConfig();
     if (!customConfig.empty()) {
         jmethodID addCustomConfigMethod = env->GetMethodID(builderClass, "addCustomConfig",
-                "(Ljava/lang/String;Ljava/lang/Object;)Lcom/example/HelpBot/core/HelpBotConfig$Builder;");
+                "(Ljava/lang/String;Ljava/lang/Object;)Lcom/helpbot/sdk/core/HelpBotConfig$Builder;");
         for (const auto& pair : customConfig) {
             jstring jkey = JNIHelper::stringToJstring(env, pair.first);
             jstring jvalue = JNIHelper::stringToJstring(env, pair.second);
@@ -125,7 +125,7 @@ static jobject buildJavaConfig(JNIEnv* env, const HelpBotConfig& config) {
     }
 
     jmethodID buildMethod = env->GetMethodID(builderClass, "build",
-            "()Lcom/example/HelpBot/core/HelpBotConfig;");
+            "()Lcom/helpbot/sdk/core/HelpBotConfig;");
     jobject jconfig = env->CallObjectMethod(builder, buildMethod);
     JNIHelper::checkAndClearException(env);
 
@@ -151,7 +151,7 @@ static HelpBotResult<void> parseVoidResult(JNIEnv* env, jobject jresult) {
 
         // errorCode.getCode / errorMessage
         jmethodID getErrorCodeMethod = env->GetMethodID(resultClass, "getErrorCode",
-                "()Lcom/example/HelpBot/core/HelpBotErrorCode;");
+                "()Lcom/helpbot/sdk/core/HelpBotErrorCode;");
         jobject jerrorCode = env->CallObjectMethod(jresult, getErrorCodeMethod);
 
         int codeInt = static_cast<int>(HelpBotErrorCode::UNKNOWN_ERROR);
@@ -204,13 +204,13 @@ void install(const HelpBotConfig& config, HelpBotInitCallback* callback) {
             throw std::runtime_error("构建 HelpBotConfig 失败");
         }
 
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
 
         jmethodID installMethod = env->GetStaticMethodID(bridgeClass, "install",
-                "(Landroid/content/Context;Lcom/example/HelpBot/core/HelpBotConfig;J)V");
+                "(Landroid/content/Context;Lcom/helpbot/sdk/core/HelpBotConfig;J)V");
         env->CallStaticVoidMethod(bridgeClass, installMethod, appContext, jconfig,
                 static_cast<jlong>(reinterpret_cast<intptr_t>(callback)));
 
@@ -241,7 +241,7 @@ void login(const std::string& token,
     }
 
     try {
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
@@ -276,7 +276,7 @@ bool isInitialized() {
     }
     bool ok = false;
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "isInitialized", "()Z");
         ok = env->CallStaticBooleanMethod(helpBotClass, method);
         JNIHelper::checkAndClearException(env);
@@ -296,7 +296,7 @@ std::string getSDKVersion() {
     }
     std::string version = "unknown";
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "getSDKVersion", "()Ljava/lang/String;");
         jstring jversion = static_cast<jstring>(env->CallStaticObjectMethod(helpBotClass, method));
         version = JNIHelper::jstringToString(env, jversion);
@@ -321,9 +321,9 @@ HelpBotResult<void> logout() {
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "logout 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "logout",
-                "()Lcom/example/HelpBot/core/HelpBotResult;");
+                "()Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method);
         out = parseVoidResult(env, jresult);
         if (jresult) {
@@ -349,9 +349,9 @@ HelpBotResult<void> showConversation(const std::map<std::string, std::string>* c
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "showConversation 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "showConversation",
-                "(Landroid/content/Context;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Landroid/content/Context;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject ctx = getApplicationContext(env);
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method, ctx);
         out = parseVoidResult(env, jresult);
@@ -383,9 +383,9 @@ HelpBotResult<void> hideConversation() {
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "hideConversation 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "hideConversation",
-                "()Lcom/example/HelpBot/core/HelpBotResult;");
+                "()Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method);
         out = parseVoidResult(env, jresult);
         if (jresult) {
@@ -408,7 +408,7 @@ bool isConversationVisible() {
     }
     bool visible = false;
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "isConversationVisible", "()Z");
         visible = env->CallStaticBooleanMethod(helpBotClass, method);
         JNIHelper::checkAndClearException(env);
@@ -429,9 +429,9 @@ HelpBotResult<void> showFAQs(const std::map<std::string, std::string>* configMap
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "showFAQs 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "showFAQs",
-                "(Landroid/content/Context;Ljava/util/Map;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Landroid/content/Context;Ljava/util/Map;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject ctx = getApplicationContext(env);
         std::map<std::string, std::string> empty;
         jobject jmap = JNIHelper::mapToJmap(env, configMap ? *configMap : empty);
@@ -462,9 +462,9 @@ HelpBotResult<void> showFAQSection(const std::string& sectionId, const std::map<
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "showFAQSection 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "showFAQSection",
-                "(Landroid/content/Context;Ljava/lang/String;Ljava/util/Map;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Landroid/content/Context;Ljava/lang/String;Ljava/util/Map;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject ctx = getApplicationContext(env);
         jstring jsection = JNIHelper::stringToJstring(env, sectionId);
         std::map<std::string, std::string> empty;
@@ -497,9 +497,9 @@ HelpBotResult<void> showSingleFAQ(const std::string& questionId, const std::map<
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "showSingleFAQ 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "showSingleFAQ",
-                "(Landroid/content/Context;Ljava/lang/String;Ljava/util/Map;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Landroid/content/Context;Ljava/lang/String;Ljava/util/Map;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject ctx = getApplicationContext(env);
         jstring jq = JNIHelper::stringToJstring(env, questionId);
         std::map<std::string, std::string> empty;
@@ -532,9 +532,9 @@ static HelpBotResult<void> callMapVoidApi(const char* methodName, const std::map
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, std::string(methodName) + " 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, methodName,
-                "(Ljava/util/Map;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Ljava/util/Map;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject jmap = JNIHelper::mapToJmap(env, map);
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method, jmap);
         out = parseVoidResult(env, jresult);
@@ -566,9 +566,9 @@ static HelpBotResult<void> callStringListVoidApi(const char* methodName, const s
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, std::string(methodName) + " 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, methodName,
-                "(Ljava/util/ArrayList;)Lcom/example/HelpBot/core/HelpBotResult;");
+                "(Ljava/util/ArrayList;)Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject jlist = JNIHelper::vectorToJlist(env, vec);
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method, jlist);
         out = parseVoidResult(env, jresult);
@@ -600,9 +600,9 @@ HelpBotResult<void> reportSystemInfoToServer() {
 
     HelpBotResult<void> out = HelpBotResult<void>::failure(HelpBotErrorCode::INTERNAL_ERROR, "reportSystemInfoToServer 失败");
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "reportSystemInfoToServer",
-                "()Lcom/example/HelpBot/core/HelpBotResult;");
+                "()Lcom/helpbot/sdk/core/HelpBotResult;");
         jobject jresult = env->CallStaticObjectMethod(helpBotClass, method);
         out = parseVoidResult(env, jresult);
         if (jresult) env->DeleteLocalRef(jresult);
@@ -626,7 +626,7 @@ void sendMessageAsync(const std::string& message, HelpBotCallback<std::string>* 
     }
 
     try {
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
@@ -657,7 +657,7 @@ void getHistoryMessagesAsync(HelpBotCallback<std::string>* callback) {
     }
 
     try {
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
@@ -686,7 +686,7 @@ void loadMoreMessagesAsync(int limit, int offset, HelpBotCallback<std::string>* 
     }
 
     try {
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
@@ -711,7 +711,7 @@ void setHelpBotEventsListener(HelpBotEventsListener* listener) {
         return;
     }
     try {
-        jclass bridgeClass = JNIHelper::findClass(env, "com/example/HelpBot/cocos2d/HelpBotCocos2dBridge");
+        jclass bridgeClass = JNIHelper::findClass(env, "com/helpbot/sdk/cocos2d/HelpBotCocos2dBridge");
         if (!bridgeClass) {
             throw std::runtime_error("找不到 HelpBotCocos2dBridge（请按集成指南拷贝 Java Bridge）");
         }
@@ -736,7 +736,7 @@ void enableSseNotification(bool enable) {
         return;
     }
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "enableSseNotification", "(Z)V");
         env->CallStaticVoidMethod(helpBotClass, method, static_cast<jboolean>(enable));
         JNIHelper::checkAndClearException(env);
@@ -754,7 +754,7 @@ bool isSseNotificationEnabled() {
     }
     bool enabled = false;
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "isSseNotificationEnabled", "()Z");
         enabled = env->CallStaticBooleanMethod(helpBotClass, method);
         JNIHelper::checkAndClearException(env);
@@ -773,7 +773,7 @@ void setNotificationSmallIconResId(int resId) {
         return;
     }
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "setNotificationSmallIconResId", "(I)V");
         env->CallStaticVoidMethod(helpBotClass, method, static_cast<jint>(resId));
         JNIHelper::checkAndClearException(env);
@@ -790,7 +790,7 @@ void setNotificationChannelId(const std::string& channelId) {
         return;
     }
     try {
-        jclass helpBotClass = JNIHelper::findClass(env, "com/example/HelpBot/HelpBot");
+        jclass helpBotClass = JNIHelper::findClass(env, "com/helpbot/sdk/HelpBot");
         jmethodID method = env->GetStaticMethodID(helpBotClass, "setNotificationChannelId", "(Ljava/lang/String;)V");
         jstring jcid = JNIHelper::stringToJstring(env, channelId);
         env->CallStaticVoidMethod(helpBotClass, method, jcid);
