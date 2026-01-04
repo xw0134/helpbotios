@@ -173,7 +173,7 @@ else {
     Write-Host "========================================" -ForegroundColor Red
     Write-Host ""
     Write-Host "Possible causes:" -ForegroundColor Yellow
-    Write-Host "1. Repo doesn't exist: Visit https://github.com/new" -ForegroundColor White
+    Write-Host "1. Repo doesn't exist: Visit https://github.com/helpbotios" -ForegroundColor White
     Write-Host "2. Auth failed: Use Personal Access Token" -ForegroundColor White
     Write-Host "3. Network issues" -ForegroundColor White
     Write-Host ""
