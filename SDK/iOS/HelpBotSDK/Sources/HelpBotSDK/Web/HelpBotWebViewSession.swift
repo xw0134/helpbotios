@@ -121,22 +121,18 @@ final class HelpBotWebViewSession: NSObject {
     func attach(to viewController: UIViewController, containerView: UIView) {
         mainQueue.async { [weak self] in
             guard let self else { return }
-            do {
-                // 对齐 Android：若宿主未 preload（或 closeSession 后 WebView 被销毁），此处补一次初始化
-                if self.webView == nil, let cfg = self.config, let proxy = self.eventProxy {
-                    self.preload(config: cfg, eventProxy: proxy)
-                }
-                guard let webView = self.webView else { return }
-                self.attachedViewController = viewController
-                self.attachedContainerView = containerView
-                webView.removeFromSuperview()
-                webView.frame = containerView.bounds
-                webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                containerView.addSubview(webView)
-                self.tryOpenConversationIfPossible()
-            } catch {
-                HBlogger.e(Self.tag, "attach 异常: \(error.localizedDescription)", error)
+            // 对齐 Android：若宿主未 preload（或 closeSession 后 WebView 被销毁），此处补一次初始化
+            if self.webView == nil, let cfg = self.config, let proxy = self.eventProxy {
+                self.preload(config: cfg, eventProxy: proxy)
             }
+            guard let webView = self.webView else { return }
+            self.attachedViewController = viewController
+            self.attachedContainerView = containerView
+            webView.removeFromSuperview()
+            webView.frame = containerView.bounds
+            webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            containerView.addSubview(webView)
+            self.tryOpenConversationIfPossible()
         }
     }
 
@@ -432,17 +428,13 @@ final class HelpBotWebViewSession: NSObject {
         var result: [String: Any]?
 
         mainQueue.async {
-            do {
-                webView.evaluateJavaScript("try{HelpBot('getStatus')}catch(e){null}") { value, _ in
-                    defer { latch.countDown() }
-                    if let dict = value as? [String: Any] {
-                        result = dict
-                    } else if let str = value as? String, let parsed = HelpBotJsonUtils.parseJsonObject(str) {
-                        result = parsed
-                    }
+            webView.evaluateJavaScript("try{HelpBot('getStatus')}catch(e){null}") { value, _ in
+                defer { latch.countDown() }
+                if let dict = value as? [String: Any] {
+                    result = dict
+                } else if let str = value as? String, let parsed = HelpBotJsonUtils.parseJsonObject(str) {
+                    result = parsed
                 }
-            } catch {
-                latch.countDown()
             }
         }
 
@@ -543,16 +535,12 @@ final class HelpBotWebViewSession: NSObject {
 
         if let webView {
             // 尽量移除 message handlers，打断潜在引用链
-            do {
-                let uc = webView.configuration.userContentController
-                uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.nativeBridgeName)
-                uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.sseMessageHandlerName)
-                #if DEBUG
-                uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.consoleLogHandlerName)
-                #endif
-            } catch {
-                // ignore
-            }
+            let uc = webView.configuration.userContentController
+            uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.nativeBridgeName)
+            uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.sseMessageHandlerName)
+            #if DEBUG
+            uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.consoleLogHandlerName)
+            #endif
 
             // 停止加载
             webView.stopLoading()
@@ -826,18 +814,14 @@ final class HelpBotWebViewSession: NSObject {
                 : Self.monitorLowFreqIntervalMs
 
             // 1) 低频刷新 bootstrap（桥接通道是否就绪）
-            do {
-                let age = nowMs() - lastBootstrapUpdatedAtMs
-                if lastBootstrapUpdatedAtMs == 0 || age > Self.bootstrapRefreshIntervalMs {
-                    if let bootstrap = getWebSdkBootstrapInfoBlocking(timeoutMs: Self.bootstrapBlockingTimeoutMs) {
-                        stateLock.lock()
-                        lastBootstrapSnapshot = bootstrap
-                        lastBootstrapUpdatedAtMs = nowMs()
-                        stateLock.unlock()
-                    }
+            let age = nowMs() - lastBootstrapUpdatedAtMs
+            if lastBootstrapUpdatedAtMs == 0 || age > Self.bootstrapRefreshIntervalMs {
+                if let bootstrap = getWebSdkBootstrapInfoBlocking(timeoutMs: Self.bootstrapBlockingTimeoutMs) {
+                    stateLock.lock()
+                    lastBootstrapSnapshot = bootstrap
+                    lastBootstrapUpdatedAtMs = nowMs()
+                    stateLock.unlock()
                 }
-            } catch {
-                // ignore
             }
 
             // 2) 获取 status 并计算健康度
@@ -943,83 +927,71 @@ extension HelpBotWebViewSession: WKNavigationDelegate {
         didReceive challenge: URLAuthenticationChallenge,
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
-        do {
-            let method = challenge.protectionSpace.authenticationMethod
-            if method == NSURLAuthenticationMethodServerTrust,
-               let trust = challenge.protectionSpace.serverTrust {
-                let ok: Bool
-                if #available(iOS 13.0, *) {
-                    ok = SecTrustEvaluateWithError(trust, nil)
-                } else {
-                    var result = SecTrustResultType.invalid
-                    let status = SecTrustEvaluate(trust, &result)
-                    ok = (status == errSecSuccess) && (result == .unspecified || result == .proceed)
-                }
-
-                if ok {
-                    completionHandler(.performDefaultHandling, nil)
-                } else {
-                    HBlogger.e(Self.tag, "TLS 校验失败，拒绝加载: host=\(challenge.protectionSpace.host)", nil)
-                    onWebViewLoadError(
-                        "onReceivedSslError",
-                        url: webView.url?.absoluteString,
-                        errorCode: nil,
-                        description: "ssl_错误",
-                        isMainFrame: true,
-                        httpStatus: nil
-                    )
-                    completionHandler(.cancelAuthenticationChallenge, nil)
-                }
-                return
+        let method = challenge.protectionSpace.authenticationMethod
+        if method == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            let ok: Bool
+            if #available(iOS 13.0, *) {
+                ok = SecTrustEvaluateWithError(trust, nil)
+            } else {
+                var result = SecTrustResultType.invalid
+                let status = SecTrustEvaluate(trust, &result)
+                ok = (status == errSecSuccess) && (result == .unspecified || result == .proceed)
             }
 
-            // 其它挑战（例如 HTTP Basic）：交由系统默认处理
-            completionHandler(.performDefaultHandling, nil)
-        } catch {
-            completionHandler(.cancelAuthenticationChallenge, nil)
+            if ok {
+                completionHandler(.performDefaultHandling, nil)
+            } else {
+                HBlogger.e(Self.tag, "TLS 校验失败，拒绝加载: host=\(challenge.protectionSpace.host)", nil)
+                onWebViewLoadError(
+                    "onReceivedSslError",
+                    url: webView.url?.absoluteString,
+                    errorCode: nil,
+                    description: "ssl_错误",
+                    isMainFrame: true,
+                    httpStatus: nil
+                )
+                completionHandler(.cancelAuthenticationChallenge, nil)
+            }
+            return
         }
+
+        // 其它挑战（例如 HTTP Basic）：交由系统默认处理
+        completionHandler(.performDefaultHandling, nil)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        do {
-            guard navigationResponse.isForMainFrame else {
-                decisionHandler(.allow)
+        guard navigationResponse.isForMainFrame else {
+            decisionHandler(.allow)
+            return
+        }
+
+        if let http = navigationResponse.response as? HTTPURLResponse {
+            let status = http.statusCode
+            let url = http.url?.absoluteString
+            if status >= 400 {
+                onWebViewLoadError(
+                    "onReceivedHttpError",
+                    url: url,
+                    errorCode: nil,
+                    description: HTTPURLResponse.localizedString(forStatusCode: status),
+                    isMainFrame: true,
+                    httpStatus: status
+                )
+            }
+            // 对齐 Android：主框架确定性错误直接取消
+            if status == 401 || status == 403 || status == 404 || status == 410 {
+                decisionHandler(.cancel)
                 return
             }
-
-            if let http = navigationResponse.response as? HTTPURLResponse {
-                let status = http.statusCode
-                let url = http.url?.absoluteString
-                if status >= 400 {
-                    onWebViewLoadError(
-                        "onReceivedHttpError",
-                        url: url,
-                        errorCode: nil,
-                        description: HTTPURLResponse.localizedString(forStatusCode: status),
-                        isMainFrame: true,
-                        httpStatus: status
-                    )
-                }
-                // 对齐 Android：主框架确定性错误直接取消
-                if status == 401 || status == 403 || status == 404 || status == 410 {
-                    decisionHandler(.cancel)
-                    return
-                }
-            }
-            decisionHandler(.allow)
-        } catch {
-            decisionHandler(.cancel)
         }
+        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        do {
-            // 页面加载完成：注入 config 与 loader.js
-            injectConfigAndLoaderIfNeeded()
-        } catch {
-            HBlogger.e(Self.tag, "didFinish 注入异常: \(error.localizedDescription)", error)
-        }
+        // 页面加载完成：注入 config 与 loader.js
+        injectConfigAndLoaderIfNeeded()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -1057,15 +1029,11 @@ extension HelpBotWebViewSession: WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        do {
-            // targetFrame==nil 通常表示新窗口/新 tab
-            if navigationAction.targetFrame == nil,
-               let url = navigationAction.request.url,
-               HelpBotWebViewHelper.isMainFrameUrlAllowed(url) {
-                webView.load(navigationAction.request)
-            }
-        } catch {
-            // ignore
+        // targetFrame==nil 通常表示新窗口/新 tab
+        if navigationAction.targetFrame == nil,
+           let url = navigationAction.request.url,
+           HelpBotWebViewHelper.isMainFrameUrlAllowed(url) {
+            webView.load(navigationAction.request)
         }
         return nil
     }

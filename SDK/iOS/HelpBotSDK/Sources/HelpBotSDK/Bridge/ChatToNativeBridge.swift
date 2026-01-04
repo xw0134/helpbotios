@@ -31,12 +31,9 @@ final class ChatToNativeBridge: NSObject {
      这里做“协议级最小门禁”，既不破坏跨域 iframe 的兼容性，又能阻断低安全协议来源。
      */
     private func isAllowedOrigin(_ message: WKScriptMessage) -> Bool {
-        do {
-            let proto = message.frameInfo.securityOrigin.`protocol`.lowercased()
-            return proto == "https"
-        } catch {
-            return false
-        }
+        // WKSecurityOrigin 的 protocol 读取不会抛异常；这里做协议级门禁即可
+        let proto = message.frameInfo.securityOrigin.`protocol`.lowercased()
+        return proto == "https"
     }
 
     private func isValidEventName(_ event: String) -> Bool {
@@ -99,84 +96,79 @@ final class ChatToNativeBridge: NSObject {
 
 extension ChatToNativeBridge: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        // 所有处理都要 try-catch 风格收口，避免影响宿主稳定性
-        do {
-            // 0) 来源校验（防注入）：非白名单来源一律忽略
-            if !isAllowedOrigin(message) {
-                return
-            }
+        // 0) 来源校验（防注入）：非白名单来源一律忽略
+        if !isAllowedOrigin(message) {
+            return
+        }
 
-            // 1) WebBridge：事件透传/认证失败（helpbot-bridge.js）
-            if message.name == HelpBotWebViewHelper.nativeBridgeName {
-                // {method:'sendEvent', data:'...'} 或 {method:'sendUserAuthFailureEvent', data:'...'}
-                if let dict = message.body as? [String: Any] {
-                    let method = (dict["method"] as? String) ?? ""
-                    let data = (dict["data"] as? String) ?? ""
+        // 1) WebBridge：事件透传/认证失败（helpbot-bridge.js）
+        if message.name == HelpBotWebViewHelper.nativeBridgeName {
+            // {method:'sendEvent', data:'...'} 或 {method:'sendUserAuthFailureEvent', data:'...'}
+            if let dict = message.body as? [String: Any] {
+                let method = (dict["method"] as? String) ?? ""
+                let data = (dict["data"] as? String) ?? ""
 
-                    if method == "sendUserAuthFailureEvent" {
-                        eventProxy.notifyAuthFailure(HelpBotAuthenticationFailureReason.from(data))
-                        return
-                    }
-
-                    if method != "sendEvent" { return }
-
-                    let trimmed = data.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.isEmpty { return }
-                    if trimmed.count > Self.maxPayloadChars { return }
-
-                    // JSON 解析放后台，避免阻塞 WebKit 回调线程
-                    DispatchQueue.global(qos: .utility).async { [weak self] in
-                        self?.parseAndDispatchEvents(trimmed)
-                    }
+                if method == "sendUserAuthFailureEvent" {
+                    eventProxy.notifyAuthFailure(HelpBotAuthenticationFailureReason.from(data))
                     return
                 }
 
-                // 兜底：若直接传字符串
-                if let data = message.body as? String {
-                    let trimmed = data.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.isEmpty { return }
-                    if trimmed.count > Self.maxPayloadChars { return }
-                    DispatchQueue.global(qos: .utility).async { [weak self] in
-                        self?.parseAndDispatchEvents(trimmed)
-                    }
-                }
-                return
-            }
+                if method != "sendEvent" { return }
 
-            // 2) SSE 通知：helpbot-sdk.js 使用 window.webkit.messageHandlers['onSSEMessage'] 直接回调
-            if message.name == HelpBotWebViewHelper.sseMessageHandlerName {
-                let raw: String
-                if let s = message.body as? String {
-                    raw = s
-                } else {
-                    raw = String(describing: message.body)
-                }
-
-                let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = data.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty { return }
-                if trimmed.count > Self.maxSseMessageChars { return }
+                if trimmed.count > Self.maxPayloadChars { return }
 
-                // 事件透传给宿主（与 Android 对齐事件名）
-                eventProxy.sendEvent("SSE_MESSAGE", ["message": trimmed])
-
-                // 系统通知（默认启用，可由宿主开关控制）
-                HelpBotNotificationHelper.notifyNewMessage(trimmed)
+                // JSON 解析放后台，避免阻塞 WebKit 回调线程
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    self?.parseAndDispatchEvents(trimmed)
+                }
                 return
             }
 
-            // 3) Web 控制台日志（仅 DEBUG，默认忽略）
-            if message.name == HelpBotWebViewHelper.consoleLogHandlerName {
-                #if DEBUG
-                WebViewConsoleLogger.logFromScriptMessage(message)
-                #endif
-                return
+            // 兜底：若直接传字符串
+            if let data = message.body as? String {
+                let trimmed = data.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty { return }
+                if trimmed.count > Self.maxPayloadChars { return }
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    self?.parseAndDispatchEvents(trimmed)
+                }
             }
-
-            // 其它 messageHandlers：忽略
             return
-        } catch {
-            HBlogger.e(Self.tag, "didReceive message 异常: \(error.localizedDescription)", error)
         }
+
+        // 2) SSE 通知：helpbot-sdk.js 使用 window.webkit.messageHandlers['onSSEMessage'] 直接回调
+        if message.name == HelpBotWebViewHelper.sseMessageHandlerName {
+            let raw: String
+            if let s = message.body as? String {
+                raw = s
+            } else {
+                raw = String(describing: message.body)
+            }
+
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return }
+            if trimmed.count > Self.maxSseMessageChars { return }
+
+            // 事件透传给宿主（与 Android 对齐事件名）
+            eventProxy.sendEvent("SSE_MESSAGE", ["message": trimmed])
+
+            // 系统通知（默认启用，可由宿主开关控制）
+            HelpBotNotificationHelper.notifyNewMessage(trimmed)
+            return
+        }
+
+        // 3) Web 控制台日志（仅 DEBUG，默认忽略）
+        if message.name == HelpBotWebViewHelper.consoleLogHandlerName {
+            #if DEBUG
+            WebViewConsoleLogger.logFromScriptMessage(message)
+            #endif
+            return
+        }
+
+        // 其它 messageHandlers：忽略
+        return
     }
 }
 

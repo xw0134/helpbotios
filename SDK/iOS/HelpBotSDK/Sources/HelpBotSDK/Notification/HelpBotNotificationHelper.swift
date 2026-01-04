@@ -15,46 +15,38 @@ final class HelpBotNotificationHelper {
 
     /// 发送“新消息”本地通知（若未授权/会话可见/消息为空则静默忽略）
     static func notifyNewMessage(_ message: String) {
-        do {
-            let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.isEmpty { return }
+        let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { return }
 
-            // 与 Android 一致的默认策略：会话正在展示时不做系统通知，避免打扰（宿主仍可通过事件监听自定义处理）
-            if HelpBot.isConversationVisible() { return }
+        // 与 Android 一致的默认策略：会话正在展示时不做系统通知，避免打扰（宿主仍可通过事件监听自定义处理）
+        if HelpBot.isConversationVisible() { return }
 
-            // 仅在开关开启时通知
-            if !HelpBot.isSseNotificationEnabled() { return }
+        // 仅在开关开启时通知
+        if !HelpBot.isSseNotificationEnabled() { return }
 
-            if #available(iOS 10.0, *) {
-                UNUserNotificationCenter.current().getNotificationSettings { settings in
-                    do {
-                        switch settings.authorizationStatus {
-                        case .authorized, .provisional, .ephemeral:
-                            let content = UNMutableNotificationContent()
-                            content.title = "HelpBot"
-                            content.body = text
-                            content.sound = .default
+        if #available(iOS 10.0, *) {
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                switch settings.authorizationStatus {
+                case .authorized, .provisional, .ephemeral:
+                    let content = UNMutableNotificationContent()
+                    content.title = "HelpBot"
+                    content.body = text
+                    content.sound = .default
 
-                            let identifier = "helpbot.sse.\(Int(Date().timeIntervalSince1970 * 1000))"
-                            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-                            UNUserNotificationCenter.current().add(request) { error in
-                                if let error {
-                                    HBlogger.w(tag, "发送本地通知失败: \(error.localizedDescription)", error)
-                                }
-                            }
-                        default:
-                            // 未授权：静默忽略（SDK 不主动申请权限）
-                            break
+                    let identifier = "helpbot.sse.\(Int(Date().timeIntervalSince1970 * 1000))"
+                    let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+                    UNUserNotificationCenter.current().add(request) { error in
+                        if let error {
+                            HBlogger.w(tag, "发送本地通知失败: \(error.localizedDescription)", error)
                         }
-                    } catch {
-                        // 避免通知逻辑影响宿主稳定性
                     }
+                default:
+                    // 未授权：静默忽略（SDK 不主动申请权限）
+                    break
                 }
-            } else {
-                // iOS 9 及以下：不支持 UNUserNotificationCenter（不做通知）
             }
-        } catch {
-            HBlogger.e(tag, "notifyNewMessage 异常: \(error.localizedDescription)", error)
+        } else {
+            // iOS 9 及以下：不支持 UNUserNotificationCenter（不做通知）
         }
     }
 }

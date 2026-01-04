@@ -157,76 +157,67 @@ public final class HelpBot {
 
         // 预加载 + 等待初始化完成（后台线程）
         DispatchQueue.global(qos: .utility).async {
-            do {
-                HelpBotWebViewSession.shared.preload(config: config, eventProxy: eventProxy)
+            HelpBotWebViewSession.shared.preload(config: config, eventProxy: eventProxy)
 
-                callback?.onInitProgress(50, "等待 WebSDK 初始化")
-                let ok = HelpBotWebViewSession.shared.awaitWebSdkInitialized(
-                    timeoutMs: max(config.initTimeoutMs, defaultWebSdkInitWaitTimeoutMs)
+            callback?.onInitProgress(50, "等待 WebSDK 初始化")
+            let ok = HelpBotWebViewSession.shared.awaitWebSdkInitialized(
+                timeoutMs: max(config.initTimeoutMs, defaultWebSdkInitWaitTimeoutMs)
+            )
+
+            if ok {
+                // 进一步：等待 bridge/native 通道就绪（确保 SDK_READY/SDK_ERROR 能可靠送达宿主）
+                callback?.onInitProgress(70, "等待 WebSDK 通道就绪")
+                let bootstrapOk = HelpBotWebViewSession.shared.awaitWebSdkBootstrapReady(
+                    timeoutMs: defaultWebSdkBootstrapWaitTimeoutMs
                 )
-
-                if ok {
-                    // 进一步：等待 bridge/native 通道就绪（确保 SDK_READY/SDK_ERROR 能可靠送达宿主）
-                    callback?.onInitProgress(70, "等待 WebSDK 通道就绪")
-                    let bootstrapOk = HelpBotWebViewSession.shared.awaitWebSdkBootstrapReady(
-                        timeoutMs: defaultWebSdkBootstrapWaitTimeoutMs
-                    )
-                    if !bootstrapOk {
-                        operationLock.lock()
-                        installState = .failed
-                        operationLock.unlock()
-                        DispatchQueue.main.async {
-                            callback?.onInitFailure(.webViewInitFailed, "WebSDK 通道未就绪（Bridge/Native 通信异常）")
-                        }
-                        return
-                    }
-
-                    // 启动健康监管（install 完成后持续运行，直到 destroy）
-                    HelpBotWebViewSession.shared.startMonitoring(eventProxy: eventProxy)
-
-                    operationLock.lock()
-                    installState = .installed
-                    operationLock.unlock()
-
-                    callback?.onInitProgress(100, "初始化完成")
-                    DispatchQueue.main.async { callback?.onInitSuccess() }
-                    runPendingRequestsIfNeeded()
-                } else {
-                    let reason = HelpBotWebViewSession.shared.getWebSdkInitFailedReason() ?? "unknown"
+                if !bootstrapOk {
                     operationLock.lock()
                     installState = .failed
                     operationLock.unlock()
                     DispatchQueue.main.async {
-                        if reason.lowercased() == "init_timeout" {
-                            // 超时高概率与网络相关：无网/受限网络/企业防火墙或域名不可达
-                            var webViewHint = ""
-                            if let err = HelpBotWebViewSession.shared.getLastLoadErrorSnapshot() {
-                                var parts: [String] = []
-                                parts.append("type=\(err.type)")
-                                if let s = err.httpStatus { parts.append("httpStatus=\(s)") }
-                                if let c = err.errorCode { parts.append("errorCode=\(c)") }
-                                parts.append("mainFrame=\(err.mainFrame)")
-                                webViewHint = "（最近一次 WebView 错误：" + parts.joined(separator: " ") + "）"
-                            }
-                            let diagnosis = NetworkUtils.diagnose()
-                            let msg: String
-                            if !diagnosis.networkConnected || !diagnosis.hasInternetCapability {
-                                msg = "WebSDK 初始化超时：当前网络不可用或被禁用。" + diagnosis.buildUserHint() + webViewHint
-                            } else {
-                                msg = "WebSDK 初始化超时：网络可能受限/被策略拦截或目标域名不可达。" + diagnosis.buildUserHint() + webViewHint
-                            }
-                            callback?.onInitFailure(.operationTimeout, msg)
-                        } else {
-                            callback?.onInitFailure(.webViewInitFailed, "WebSDK 初始化失败: \(reason)")
-                        }
+                        callback?.onInitFailure(.webViewInitFailed, "WebSDK 通道未就绪（Bridge/Native 通信异常）")
                     }
+                    return
                 }
-            } catch {
+
+                // 启动健康监管（install 完成后持续运行，直到 destroy）
+                HelpBotWebViewSession.shared.startMonitoring(eventProxy: eventProxy)
+
+                operationLock.lock()
+                installState = .installed
+                operationLock.unlock()
+
+                callback?.onInitProgress(100, "初始化完成")
+                DispatchQueue.main.async { callback?.onInitSuccess() }
+                runPendingRequestsIfNeeded()
+            } else {
+                let reason = HelpBotWebViewSession.shared.getWebSdkInitFailedReason() ?? "unknown"
                 operationLock.lock()
                 installState = .failed
                 operationLock.unlock()
                 DispatchQueue.main.async {
-                    callback?.onInitFailure(.internalError, "install 异常: \(error.localizedDescription)")
+                    if reason.lowercased() == "init_timeout" {
+                        // 超时高概率与网络相关：无网/受限网络/企业防火墙或域名不可达
+                        var webViewHint = ""
+                        if let err = HelpBotWebViewSession.shared.getLastLoadErrorSnapshot() {
+                            var parts: [String] = []
+                            parts.append("type=\(err.type)")
+                            if let s = err.httpStatus { parts.append("httpStatus=\(s)") }
+                            if let c = err.errorCode { parts.append("errorCode=\(c)") }
+                            parts.append("mainFrame=\(err.mainFrame)")
+                            webViewHint = "（最近一次 WebView 错误：" + parts.joined(separator: " ") + "）"
+                        }
+                        let diagnosis = NetworkUtils.diagnose()
+                        let msg: String
+                        if !diagnosis.networkConnected || !diagnosis.hasInternetCapability {
+                            msg = "WebSDK 初始化超时：当前网络不可用或被禁用。" + diagnosis.buildUserHint() + webViewHint
+                        } else {
+                            msg = "WebSDK 初始化超时：网络可能受限/被策略拦截或目标域名不可达。" + diagnosis.buildUserHint() + webViewHint
+                        }
+                        callback?.onInitFailure(.operationTimeout, msg)
+                    } else {
+                        callback?.onInitFailure(.webViewInitFailed, "WebSDK 初始化失败: \(reason)")
+                    }
                 }
             }
         }
@@ -334,11 +325,9 @@ public final class HelpBot {
     @discardableResult
     public static func hideConversation() -> HelpBotResult<Void> {
         DispatchQueue.main.async {
-            do {
-                if let wv = HelpBotWebViewSession.shared.webView {
-                    wv.evaluateJavaScript(HelpBotJsCommand.buildClose(), completionHandler: nil)
-                }
-            } catch {}
+            if let wv = HelpBotWebViewSession.shared.webView {
+                wv.evaluateJavaScript(HelpBotJsCommand.buildClose(), completionHandler: nil)
+            }
             if let vc = currentConversationController {
                 if let nav = vc.navigationController {
                     nav.dismiss(animated: true)
@@ -371,11 +360,9 @@ public final class HelpBot {
         _ = keychain.remove(tokenStorageKeyJwt)
 
         DispatchQueue.main.async {
-            do {
-                if let wv = HelpBotWebViewSession.shared.webView {
-                    wv.evaluateJavaScript(HelpBotJsCommand.buildDestroy(), completionHandler: nil)
-                }
-            } catch {}
+            if let wv = HelpBotWebViewSession.shared.webView {
+                wv.evaluateJavaScript(HelpBotJsCommand.buildDestroy(), completionHandler: nil)
+            }
             completion?(.success())
         }
     }
@@ -499,7 +486,6 @@ public final class HelpBot {
         hasPendingEventsListenerUpdate = false
         pendingEventsListener = nil
         pendingEventsListenerCreatedAtMs = 0
-        let currentConfig = config
         config = nil
         operationLock.unlock()
         
@@ -508,31 +494,27 @@ public final class HelpBot {
         
         // 销毁 WebView 会话
         DispatchQueue.main.async {
-            do {
-                if let wv = HelpBotWebViewSession.shared.webView {
-                    wv.evaluateJavaScript(HelpBotJsCommand.buildDestroy(), completionHandler: nil)
-                }
-                
-                // 关闭对话窗口
-                if let vc = currentConversationController {
-                    if let nav = vc.navigationController {
-                        nav.dismiss(animated: false)
-                    } else {
-                        vc.dismiss(animated: false)
-                    }
-                    currentConversationController = nil
-                }
-                
-                // 销毁 WebView Session
-                HelpBotWebViewSession.shared.destroy()
-                
-                // 销毁 Context
-                HelpBotContext.destroy()
-                
-                completion?(.success())
-            } catch {
-                completion?(.failure(.internalError, "destroy 异常: \(error.localizedDescription)"))
+            if let wv = HelpBotWebViewSession.shared.webView {
+                wv.evaluateJavaScript(HelpBotJsCommand.buildDestroy(), completionHandler: nil)
             }
+
+            // 关闭对话窗口
+            if let vc = currentConversationController {
+                if let nav = vc.navigationController {
+                    nav.dismiss(animated: false)
+                } else {
+                    vc.dismiss(animated: false)
+                }
+                currentConversationController = nil
+            }
+
+            // 销毁 WebView Session
+            HelpBotWebViewSession.shared.destroy()
+
+            // 销毁 Context
+            HelpBotContext.destroy()
+
+            completion?(.success())
         }
     }
     
@@ -571,36 +553,32 @@ public final class HelpBot {
         }
         operationLock.unlock()
 
-        do {
-            let dev = IOSDevice.shared
-            let privacyMode = cfg.fullPrivacyMode
-            let diagnosis = NetworkUtils.diagnose()
+        let dev = IOSDevice.shared
+        let privacyMode = cfg.fullPrivacyMode
+        let diagnosis = NetworkUtils.diagnose()
 
-            var meta: [String: Any] = [:]
-            meta["os_type"] = "iOS"
-            meta["os_version"] = dev.getOSVersion()
-            meta["device_model"] = dev.getDeviceModel()
-            meta["app_name"] = ApplicationUtils.getAppName() ?? ""
-            meta["app_version"] = ApplicationUtils.getAppVersion() ?? ""
-            meta["sdk_version"] = getSDKVersion()
+        var meta: [String: Any] = [:]
+        meta["os_type"] = "iOS"
+        meta["os_version"] = dev.getOSVersion()
+        meta["device_model"] = dev.getDeviceModel()
+        meta["app_name"] = ApplicationUtils.getAppName() ?? ""
+        meta["app_version"] = ApplicationUtils.getAppVersion() ?? ""
+        meta["sdk_version"] = getSDKVersion()
 
-            if !privacyMode {
-                meta["battery_level"] = dev.getBatteryLevel()
-                meta["battery_status"] = dev.getBatteryState()
-                meta["network_type"] = diagnosis.transport ?? ""
-                meta["country_code"] = dev.getDeviceRegion()
-                meta["language"] = dev.getDeviceLanguage()
-                meta["app_identifier"] = dev.getBundleId()
-                meta["device_id"] = dev.getDeviceId()
-                meta["is_online"] = diagnosis.networkConnected && diagnosis.hasInternetCapability
-            } else {
-                meta["full_privacy_mode"] = true
-            }
-
-            return updateUserSdkMeta(meta)
-        } catch {
-            return .failure(.internalError, "reportSystemInfoToServer 异常: \(error.localizedDescription)")
+        if !privacyMode {
+            meta["battery_level"] = dev.getBatteryLevel()
+            meta["battery_status"] = dev.getBatteryState()
+            meta["network_type"] = diagnosis.transport ?? ""
+            meta["country_code"] = dev.getDeviceRegion()
+            meta["language"] = dev.getDeviceLanguage()
+            meta["app_identifier"] = dev.getBundleId()
+            meta["device_id"] = dev.getDeviceId()
+            meta["is_online"] = diagnosis.networkConnected && diagnosis.hasInternetCapability
+        } else {
+            meta["full_privacy_mode"] = true
         }
+
+        return updateUserSdkMeta(meta)
     }
 
     /**
@@ -644,12 +622,8 @@ public final class HelpBot {
         _ = keychain.remove(tokenStorageKeyJwt)
 
         ApplicationUtils.runOnMainThread {
-            do {
-                if let wv = HelpBotWebViewSession.shared.webView {
-                    wv.evaluateJavaScript(HelpBotJsCommand.buildClose(), completionHandler: nil)
-                }
-            } catch {
-                // ignore
+            if let wv = HelpBotWebViewSession.shared.webView {
+                wv.evaluateJavaScript(HelpBotJsCommand.buildClose(), completionHandler: nil)
             }
             HelpBotWebViewSession.shared.destroy()
         }
@@ -750,28 +724,24 @@ public final class HelpBot {
     /// 清除匿名用户数据（与 Android 对齐）
     public static func clearAnonymousUser(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
         HelpBotThreadPool.shared.submit {
-            do {
-                // 清除本地存储的匿名用户数据
-                _ = HBPersistentStorage.shared.remove("anonymous_user_id")
-                _ = HBPersistentStorage.shared.remove("anonymous_user_data")
-                
-                // 通知 WebSDK 清除匿名用户
-                DispatchQueue.main.async {
-                    if let webView = HelpBotWebViewSession.shared.webView {
-                        let js = "try { if (window.HelpBot) { window.HelpBot.clearAnonymousUser(); } } catch(e) {}"
-                        webView.evaluateJavaScript(js) { _, error in
-                            if let error = error {
-                                completion?(.failure(.internalError, "清除匿名用户失败: \(error.localizedDescription)"))
-                            } else {
-                                completion?(.success())
-                            }
+            // 清除本地存储的匿名用户数据
+            _ = HBPersistentStorage.shared.remove("anonymous_user_id")
+            _ = HBPersistentStorage.shared.remove("anonymous_user_data")
+
+            // 通知 WebSDK 清除匿名用户
+            DispatchQueue.main.async {
+                if let webView = HelpBotWebViewSession.shared.webView {
+                    let js = "try { if (window.HelpBot) { window.HelpBot.clearAnonymousUser(); } } catch(e) {}"
+                    webView.evaluateJavaScript(js) { _, error in
+                        if let error = error {
+                            completion?(.failure(.internalError, "清除匿名用户失败: \(error.localizedDescription)"))
+                        } else {
+                            completion?(.success())
                         }
-                    } else {
-                        completion?(.success())
                     }
+                } else {
+                    completion?(.success())
                 }
-            } catch {
-                completion?(.failure(.internalError, "清除匿名用户异常: \(error.localizedDescription)"))
             }
         }
     }
