@@ -3,7 +3,6 @@ import Foundation
 /**
  通用数据管理器（iOS）。
  
- 与 Android HBGenericDataManager.java 对齐。
  提供统一的数据访问接口，支持持久化存储和加密存储。
  */
 public final class HBGenericDataManager {

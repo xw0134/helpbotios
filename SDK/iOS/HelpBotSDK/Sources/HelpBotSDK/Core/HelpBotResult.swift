@@ -20,7 +20,7 @@ public struct HelpBotResult<T> {
 }
 
 /**
- HelpBot SDK 异步回调（与 Android HelpBotCallback 对齐）。
+ HelpBot SDK 异步回调。
  */
 public protocol HelpBotCallback: AnyObject {
     associatedtype T

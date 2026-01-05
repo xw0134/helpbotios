@@ -3,7 +3,6 @@ import Foundation
 /**
  持久化存储管理器（iOS）。
  
- 与 Android HBPersistentStorage.java 对齐。
  使用 UserDefaults 进行数据持久化。
  */
 public final class HBPersistentStorage {

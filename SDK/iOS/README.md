@@ -5,10 +5,8 @@
 - `HelpBotSDK/`: iOS 版 HelpBot SDK (Swift Package),对齐 Android 版对外 API 与 WebSDK Bridge 协议。
 - `HelpBotDemo/`: iOS Demo (通过 XcodeGen 生成工程),演示 install/login/展示会话/事件回调。
 
-## 关键约束 (与 Android 一致)
+## 关键约束 
 
-- **禁止引用 `websdk/` 目录下任何 JS/HTML 文件**: 该目录仅供阅读与协议对齐参考。
-- **SDK 内必须写死 WebChat 的 index/loader 链接**: iOS 与 Android 保持一致,见 `HelpBotSDK/Sources/HelpBotSDK/Utils/HelpBotSDKUrls.swift`。
 - 架构风格: MVC + 事件驱动; JS 通信: WKWebView + `WKScriptMessageHandler` (等价 Android `@JavascriptInterface`)。
 
 ## 🚀 快速开始: GitHub Actions 云端编译 (推荐)

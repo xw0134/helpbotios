@@ -3,7 +3,6 @@ import Foundation
 /**
  HelpBot 日志包装器（iOS）。
  
- 与 Android HelpBotLogger.java 对齐。
  提供额外的日志功能和格式化。
  */
 public final class HelpBotLogger {

@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 /**
- Web -> Native JSBridge（iOS），对齐 Android `ChatToNativeBridge`：
+ Web -> Native JSBridge（iOS）：
  - 入口：`window.HelpBotNativeIOS.sendEvent(payloadStr)`
  - payloadStr: JSON 字符串，结构 `{ "EVENT_NAME": { ...eventData... } }`
  */
@@ -27,8 +27,7 @@ final class ChatToNativeBridge: NSObject {
     /**
      校验 message 来源：仅允许 HTTPS 安全域消息（拒绝 file/http 等），降低被恶意页面/iframe 注入的风险。
 
-     说明：Android 侧 JSBridge 默认运行在 WebView 的同一进程空间，且子 frame 也可能调用；
-     这里做“协议级最小门禁”，既不破坏跨域 iframe 的兼容性，又能阻断低安全协议来源。
+     这里做最小验证，既不破坏跨域 iframe 的兼容性，又能阻断低安全协议来源。
      */
     private func isAllowedOrigin(_ message: WKScriptMessage) -> Bool {
         // WKSecurityOrigin 的 protocol 读取不会抛异常；这里做协议级门禁即可
@@ -138,7 +137,7 @@ extension ChatToNativeBridge: WKScriptMessageHandler {
             return
         }
 
-        // 2) SSE 通知：helpbot-sdk.js 使用 window.webkit.messageHandlers['onSSEMessage'] 直接回调
+        // 2) SSE 通知：helpbot-sdk 使用 window.webkit.messageHandlers['onSSEMessage'] 直接回调
         if message.name == HelpBotWebViewHelper.sseMessageHandlerName {
             let raw: String
             if let s = message.body as? String {
@@ -151,7 +150,7 @@ extension ChatToNativeBridge: WKScriptMessageHandler {
             if trimmed.isEmpty { return }
             if trimmed.count > Self.maxSseMessageChars { return }
 
-            // 事件透传给宿主（与 Android 对齐事件名）
+            // 事件透传给宿主（事件名）
             eventProxy.sendEvent("SSE_MESSAGE", ["message": trimmed])
 
             // 系统通知（默认启用，可由宿主开关控制）

@@ -1,7 +1,7 @@
 import Foundation
 
 /**
- 用户认证失败原因（与 WebSDK `HelpBotAuthenticationFailureReason` 对齐）。
+ 用户认证失败原因。
  */
 public enum HelpBotAuthenticationFailureReason: String, Codable {
     case invalidIdentityToken = "INVALID_IDENTITY_TOKEN"

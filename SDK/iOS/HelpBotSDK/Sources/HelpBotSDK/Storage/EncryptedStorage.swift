@@ -4,7 +4,7 @@ import Security
 /**
  加密存储（iOS）。
  
- 与 Android EncryptedStorage.java 对齐。
+ 
  使用 Keychain 进行敏感数据加密存储。
  */
 public final class EncryptedStorage {

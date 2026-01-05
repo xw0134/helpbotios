@@ -4,7 +4,6 @@ import UIKit
 /**
  设备信息协议（iOS）。
  
- 与 Android Device.java 对齐。
  定义设备信息获取接口。
  */
 public protocol Device {

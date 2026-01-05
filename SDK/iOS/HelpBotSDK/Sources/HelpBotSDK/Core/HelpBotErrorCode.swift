@@ -3,7 +3,7 @@ import Foundation
 /**
  HelpBot SDK 错误码定义（iOS）。
 
- 说明：为便于跨端一致性，错误码与 Android `HelpBotErrorCode` 对齐。
+ 说明：为便于跨端一致性。
  */
 public enum HelpBotErrorCode: Int, Codable {
     // ==================== 初始化相关错误 (1000-1099) ====================

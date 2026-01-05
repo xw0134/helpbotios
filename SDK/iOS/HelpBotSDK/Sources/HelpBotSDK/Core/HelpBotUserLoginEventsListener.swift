@@ -3,7 +3,7 @@ import Foundation
 /**
  HelpBot 用户登录事件监听器（iOS）。
  
- 与 Android HelpBotUserLoginEventsListener.java 对齐。
+
  用于监听用户登录相关的事件。
  */
 public protocol HelpBotUserLoginEventsListener: AnyObject {

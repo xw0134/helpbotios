@@ -10,7 +10,7 @@
 
 - **WebChat index/loader 写死**：iOS `HelpBotSDKUrls.webChatIndex/webChatLoaderJs` 与 Android `SDKUrls.WEBCHAT_INDEX/WEBCHAT_LOADER_JS` 一致，且主框架导航白名单基于该常量校验。
 - **禁止引用 `websdk/` 目录**：SDK 代码未通过 `file://`/bundle/asset 引用 `websdk/` 下的 JS/HTML；`websdk/websdk总结.md` 仅作为对接参考文档存在。
-- **事件协议对齐**：iOS `ChatToNativeBridge` 按 `{ "EVENT_NAME": {...} }` 结构解析并透传，关键事件 `SDK_READY/SDK_ERROR/USER_AUTHENTICATION_FAILED` 行为与 Android 对齐。
+- **事件协议对齐**：iOS `ChatToNativeBridge` 按 `{ "EVENT_NAME": {...} }` 结构解析并透传，关键事件 `SDK_READY/SDK_ERROR/USER_AUTHENTICATION_FAILED` 行为。
 - **SSE 通知对齐**：iOS 通过 `onSSEMessage` messageHandler 接收 WebSDK 消息摘要，透传 `SSE_MESSAGE` 事件，并在会话不可见且已授权时发系统通知（默认开关可控）。
 
 ---

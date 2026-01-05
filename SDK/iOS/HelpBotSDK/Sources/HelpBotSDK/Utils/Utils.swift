@@ -1,9 +1,8 @@
 import Foundation
 
 /**
- 通用工具函数（iOS）。
+ 通用工具函数
  
- 与 Android Utils.java 对齐。
  */
 public final class Utils {
     

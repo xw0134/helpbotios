@@ -3,7 +3,6 @@ import Foundation
 /**
  HelpBot 统一日志实现（iOS）。
  
- 与 Android HBlogger.java 对齐。
  功能：
  - 支持自定义日志接口 (IHBLogger)
  - 线程安全
@@ -26,7 +25,7 @@ public final class HBlogger {
 
     // MARK: - Sensitive data sanitization
 
-    /// 敏感字段正则（尽量与 Android 的脱敏范围一致）
+    /// 敏感字段正则
     private static let tokenPattern = try? NSRegularExpression(
         pattern: "(token|jwt|bearer|authorization)[\"']?\\s*[:=]\\s*[\"']?([^\"',\\s}]+)",
         options: [.caseInsensitive]
@@ -139,7 +138,7 @@ public final class HBlogger {
     }
 
     /**
-     日志脱敏处理（尽量与 Android 行为一致）。
+     日志脱敏处理
      */
     private static func sanitize(_ message: String) -> String {
         if message.isEmpty {

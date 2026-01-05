@@ -3,7 +3,7 @@ import Foundation
 /**
  SDK 全局上下文管理器（iOS）。
  
- 与 Android HelpBotContext.java 对齐。
+
  负责 SDK 全局状态管理、组件初始化协调、事件代理管理。
  */
 public final class HelpBotContext {

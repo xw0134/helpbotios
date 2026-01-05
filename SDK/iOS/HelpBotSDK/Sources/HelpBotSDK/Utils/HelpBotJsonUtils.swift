@@ -132,7 +132,7 @@ public final class HelpBotJsonUtils {
      规范化事件数据（Web -> Native）。
 
      说明：Web 侧事件数据可能是对象/字符串(JSON)/数组/基础类型；此处统一为 `[String: Any]?`，
-     以便宿主侧稳定处理（与 Android 对齐：事件 data 以 map 为主）。
+     以便宿主侧稳定处理（事件 data 以 map 为主）。
 
      - Parameter raw: 原始事件数据
      - Returns: 规范化后的字典，无法表达时返回 nil

@@ -5,7 +5,7 @@ import UserNotifications
 /**
  HelpBot 本地通知辅助类（iOS）。
 
- 设计目标（与 Android 行为对齐）：
+ 设计目标：
  - WebSDK 推送 SSE 新消息摘要到 Native 后，SDK 可选显示系统通知
  - 默认启用（可由 `HelpBot.enableSseNotification()/disableSseNotification()` 控制）
  - 不主动弹窗申请权限（避免打扰宿主），仅在已授权时发送通知
@@ -18,7 +18,7 @@ final class HelpBotNotificationHelper {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { return }
 
-        // 与 Android 一致的默认策略：会话正在展示时不做系统通知，避免打扰（宿主仍可通过事件监听自定义处理）
+        // 会话正在展示时不做系统通知，避免打扰（宿主仍可通过事件监听自定义处理）
         if HelpBot.isConversationVisible() { return }
 
         // 仅在开关开启时通知

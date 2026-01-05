@@ -1,0 +1,177 @@
+name: Cocos2d SDK Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'SDK/Cocos2d/**'
+      - '.github/workflows/cocos2d-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'SDK/Cocos2d/**'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout代码
+        uses: actions/checkout@v4
+      
+      - name: 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: 安装 NDK
+        run: |
+          echo "y" | sdkmanager "ndk;25.1.8937393"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393" >> $GITHUB_ENV
+      
+      - name: 授予 Gradle 执行权限
+        working-directory: SDK/Cocos2d/Demo/proj.android
+        run: chmod +x gradlew
+      
+      - name: 构建 Android APK
+        working-directory: SDK/Cocos2d/Demo/proj.android
+        run: ./gradlew assembleDebug --stacktrace
+      
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpbot-cocos2d-android-debug
+          path: SDK/Cocos2d/Demo/proj.android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+      
+      - name: 检查 APK 大小
+        working-directory: SDK/Cocos2d/Demo/proj.android/app/build/outputs/apk/debug
+        run: |
+          ls -lh *.apk
+          echo "APK 文件已生成"
+
+  build-ios:
+    name: Build iOS Simulator
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+      
+      - name: 选择 Xcode 版本
+        run: sudo xcode-select -s /Applications/Xcode_15.0.app/Contents/Developer
+      
+      - name: 显示 Xcode 版本
+        run: xcodebuild -version
+      
+      - name: 安装 CocoaPods
+        run: |
+          gem install cocoapods
+          pod --version
+      
+      - name: 安装 Pod 依赖
+        working-directory: SDK/Cocos2d/Demo/proj.ios_mac
+        run: |
+          if [ -f "Podfile" ]; then
+            pod install
+          else
+            echo "No Podfile found, skipping pod install"
+          fi
+      
+      - name: 创建 Xcode 项目 (使用 xcodegen)
+        working-directory: SDK/Cocos2d/Demo/proj.ios_mac
+        run: |
+          # 如果有 project.yml,使用 xcodegen 生成项目
+          if [ -f "project.yml" ]; then
+            brew install xcodegen
+            xcodegen generate
+          fi
+      
+      - name: 构建 iOS 模拟器版本
+        working-directory: SDK/Cocos2d/Demo/proj.ios_mac
+        run: |
+          # 查找 xcodeproj 或 xcworkspace
+          if [ -f "HelpBotDemo.xcworkspace" ]; then
+            WORKSPACE="-workspace HelpBotDemo.xcworkspace"
+          elif [ -f "HelpBotDemo.xcodeproj" ]; then
+            WORKSPACE="-project HelpBotDemo.xcodeproj"
+          else
+            echo "Error: No Xcode project or workspace found"
+            exit 1
+          fi
+          
+          xcodebuild \
+            $WORKSPACE \
+            -scheme HelpBotDemo \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
+      
+      - name: 打包 .app 文件
+        working-directory: SDK/Cocos2d/Demo/proj.ios_mac
+        run: |
+          cd build/Build/Products/Debug-iphonesimulator
+          zip -r HelpBotDemo.app.zip HelpBotDemo.app
+          mv HelpBotDemo.app.zip ../../../../
+      
+      - name: 上传 iOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpbot-cocos2d-ios-simulator
+          path: SDK/Cocos2d/Demo/proj.ios_mac/HelpBotDemo.app.zip
+          retention-days: 7
+      
+      - name: 显示构建信息
+        working-directory: SDK/Cocos2d/Demo/proj.ios_mac
+        run: |
+          ls -lh HelpBotDemo.app.zip
+          echo "iOS 模拟器版本已构建完成"
+
+  test-summary:
+    name: 测试总结
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 下载 Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: helpbot-cocos2d-android-debug
+          path: artifacts/android
+      
+      - name: 下载 iOS App
+        uses: actions/download-artifact@v4
+        with:
+          name: helpbot-cocos2d-ios-simulator
+          path: artifacts/ios
+      
+      - name: 生成测试报告
+        run: |
+          echo "# Cocos2d SDK 编译测试报告" > test-report.md
+          echo "" >> test-report.md
+          echo "## Android 构建" >> test-report.md
+          echo "✅ 编译成功" >> test-report.md
+          ls -lh artifacts/android/*.apk >> test-report.md
+          echo "" >> test-report.md
+          echo "## iOS 构建" >> test-report.md
+          echo "✅ 编译成功 (模拟器版本)" >> test-report.md
+          ls -lh artifacts/ios/*.zip >> test-report.md
+          echo "" >> test-report.md
+          cat test-report.md
+      
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-report.md
+          retention-days: 30

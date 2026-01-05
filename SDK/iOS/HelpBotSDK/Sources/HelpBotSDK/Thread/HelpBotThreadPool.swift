@@ -3,7 +3,6 @@ import Foundation
 /**
  HelpBot 线程池管理器（iOS）。
  
- 与 Android HelpBotThreadPool.java 对齐。
  提供统一的线程池管理和任务调度。
  */
 public final class HelpBotThreadPool {

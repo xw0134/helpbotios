@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 /**
- WKWebView 初始化与安全加固工具类（iOS）。
+ WKWebView 初始化与安全加固工具类
 
  目标：
  - 统一 SDK 内 WKWebView 的配置
@@ -82,7 +82,7 @@ enum HelpBotWebViewHelper {
         let scheme = (url.scheme ?? "").lowercased()
         if scheme != "https" && scheme != "about" { return false }
         if scheme == "about" {
-            // 对齐 Android：仅允许 about:blank（用于销毁/清理阶段）
+            // 仅允许 about:blank（用于销毁/清理阶段）
             return url.absoluteString.lowercased() == "about:blank"
         }
 
@@ -99,11 +99,11 @@ enum HelpBotWebViewHelper {
     }
 
     /**
-     子资源/子框架放行策略（对齐 Android 思路）：
+     子资源/子框架放行策略：
      - 主框架导航仍必须走严格白名单，防止顶层跳转被劫持
      - 子资源/子框架仅做最小协议白名单：允许 https + blob/data + about:blank
 
-     说明：WKWebView 的资源加载/子资源拦截能力与 Android 不同；这里主要用于 iframe/子 frame 的导航兜底。
+     说明：WKWebView 的资源加载；这里主要用于 iframe/子 frame 的导航兜底。
      */
     static func isSubresourceUrlAllowed(_ url: URL?) -> Bool {
         guard let url else { return true }

@@ -1,7 +1,7 @@
 import Foundation
 
 /**
- HelpBot SDK 配置类（iOS），使用 Builder 构建，尽量与 Android 字段对齐。
+ HelpBot SDK 配置类（iOS），使用 Builder 构建。
  */
 public final class HelpBotConfig {
     public let channelId: String

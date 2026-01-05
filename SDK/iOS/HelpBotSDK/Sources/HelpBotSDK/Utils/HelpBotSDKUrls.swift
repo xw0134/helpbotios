@@ -1,9 +1,8 @@
 import Foundation
 
 /**
- SDK 内部写死的 WebChat 入口地址（必须写死，禁止宿主侧自定义）。
+ SDK 内部的 WebChat 入口地址
 
- 说明：与 Android `SDKUrls` 对齐。
  */
 public enum HelpBotSDKUrls {
     /// WebChat 主页面（index）

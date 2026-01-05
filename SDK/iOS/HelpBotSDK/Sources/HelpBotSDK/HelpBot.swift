@@ -13,10 +13,10 @@ import WebKit
 public final class HelpBot {
     private static let tag = "HelpBot"
     private static let tokenStorageKeyJwt = "jwt_token"
-    /// iOS SDK 版本号（对齐 Android AAR 版本号命名）
+    /// iOS SDK 版本号
     private static let sdkVersion = "0.1.13"
 
-    /// FAQ 基础 URL（对齐 Android 实现：当前为占位示例，后续可替换为真实帮助中心域名）
+    /// FAQ 基础 URL（实现：当前为占位示例，后续可替换为真实帮助中心域名）
     private static let faqBaseUrl = "https://www.baidu.com/"
 
     private static let defaultWebSdkInitWaitTimeoutMs: Int = 35_000
@@ -65,7 +65,7 @@ public final class HelpBot {
     private static var pendingLoginRequest: PendingLoginRequest?
     private static var pendingShowConversationRequest: PendingShowConversationRequest?
 
-    // setEventsListener 需要排队：仅在 install 完成后才绑定（与 Android 对齐）
+    // setEventsListener 需要排队：仅在 install 完成后才绑定（）
     private static weak var pendingEventsListener: HelpBotEventsListener?
     private static var pendingEventsListenerCreatedAtMs: Int64 = 0
     private static var hasPendingEventsListenerUpdate: Bool = false
@@ -374,7 +374,7 @@ public final class HelpBot {
     // MARK: - FAQ APIs
     
     /**
-     显示 FAQ 主页面（对齐 Android：使用系统浏览器打开 URL，而非在 WebChat 内嵌打开）。
+     显示 FAQ 主页面（使用系统浏览器打开 URL，而非在 WebChat 内嵌打开）。
      
      - Parameters:
        - viewController: 当前页面 VC（仅用于调用方语义一致性；iOS 采用系统 openURL，不强依赖该参数）
@@ -402,7 +402,7 @@ public final class HelpBot {
     }
 
     /**
-     显示 FAQ 分组页面（对齐 Android）。
+     显示 FAQ 分组页面
      
      - Parameters:
        - viewController: 当前页面 VC（语义一致）
@@ -431,7 +431,7 @@ public final class HelpBot {
     }
 
     /**
-     显示 FAQ 单页（对齐 Android）。
+     显示 FAQ 单页
      
      - Parameters:
        - viewController: 当前页面 VC（语义一致）
@@ -459,9 +459,9 @@ public final class HelpBot {
         return .success()
     }
 
-    /// 构建 FAQ URL（对齐 Android 的 buildFaqUrl 逻辑）
+    /// 构建 FAQ URL
     private static func buildFaqUrl(tn: String?, extraKey: String?, extraValue: String?) -> String {
-        // tn 默认值与 Android 对齐
+        // tn 默认值
         let tnValue = (tn ?? "").isEmpty ? "68018901_16_pg" : (tn ?? "68018901_16_pg")
         var comps = URLComponents(string: faqBaseUrl) ?? URLComponents()
         var items: [URLQueryItem] = []
@@ -475,7 +475,7 @@ public final class HelpBot {
     
     // MARK: - SDK Management APIs
     
-    /// 销毁 SDK 并释放所有资源（与 Android 对齐）
+    /// 销毁 SDK 并释放所有资源（）
     public static func destroy(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
         operationLock.lock()
         installState = .notInstalled
@@ -518,15 +518,14 @@ public final class HelpBot {
         }
     }
     
-    /// 获取 SDK 版本号（与 Android 对齐）
+    /// 获取 SDK 版本号（）
     public static func getSDKVersion() -> String {
         return sdkVersion
     }
 
-    // MARK: - Android 对齐补充 API（别名/兼容）
 
     /**
-     更新 SDK Meta（对齐 Android `updateSDKMeta`）。
+     更新 SDK Meta
      - 说明：iOS 内部复用 `updateUserSdkMeta`。
      */
     public static func updateSDKMeta(_ meta: [String: Any]) -> HelpBotResult<Void> {
@@ -534,7 +533,7 @@ public final class HelpBot {
     }
 
     /**
-     更新用户自定义 Meta（对齐 Android `updateCustomMeta`）。
+     更新用户自定义 Meta
      - 说明：iOS 内部复用 `updateUserMeta`。
      */
     public static func updateCustomMeta(_ meta: [String: Any]) -> HelpBotResult<Void> {
@@ -542,7 +541,7 @@ public final class HelpBot {
     }
 
     /**
-     上报系统信息到服务器（对齐 Android `reportSystemInfoToServer`）。
+     上报系统信息到服务器
      - 说明：通过 WebSDK `updateUserSdkMeta` 上报；隐私模式下最小化上报字段。
      */
     public static func reportSystemInfoToServer() -> HelpBotResult<Void> {
@@ -582,7 +581,7 @@ public final class HelpBot {
     }
 
     /**
-     设置通知小图标资源 ID（对齐 Android API）。
+     设置通知小图标资源 ID
      - 说明：iOS 无“通知小图标资源 ID”概念，此方法为跨平台 API 兼容保留，当前 no-op。
      */
     public static func setNotificationSmallIconResId(_ resId: Int) {
@@ -590,7 +589,7 @@ public final class HelpBot {
     }
 
     /**
-     设置通知渠道 ID（对齐 Android API）。
+     设置通知渠道 ID
      - 说明：iOS 无 NotificationChannelId 概念，此方法为跨平台 API 兼容保留，当前 no-op。
      */
     public static func setNotificationChannelId(_ channelId: String) {
@@ -598,7 +597,7 @@ public final class HelpBot {
     }
 
     /**
-     关闭当前会话（对齐 Android `closeSession()`）：
+     关闭当前会话
      - 调用 WebSDK close
      - 销毁 WebView 会话（释放 WKWebView），但保留 install（config 仍保留）
      - 清理登录确认与待处理请求
@@ -630,26 +629,26 @@ public final class HelpBot {
         return .success()
     }
     
-    /// 验证 SDK 是否已正确安装（与 Android 对齐）
+    /// 验证 SDK 是否已正确安装（）
     public static func verifyInstall() -> Bool {
         operationLock.lock()
         defer { operationLock.unlock() }
         return installState == .installed && config != nil && HelpBotContext.isInstalled()
     }
 
-    /// SDK 是否已初始化完成（与 Android `isInitialized()` 对齐）
+    /// SDK 是否已初始化完成
     public static func isInitialized() -> Bool {
         return verifyInstall()
     }
     
-    /// 获取当前 SDK 配置（与 Android 对齐）
+    /// 获取当前 SDK 配置（）
     public static func getConfig() -> HelpBotConfig? {
         operationLock.lock()
         defer { operationLock.unlock() }
         return config
     }
 
-    /// 获取 WebSDK 健康快照（与 Android `getWebSdkHealthSnapshot()` 对齐）
+    /// 获取 WebSDK 健康快照
     public static func getWebSdkHealthSnapshot() -> [String: Any] {
         return HelpBotWebViewSession.shared.getHealthSnapshot()
     }
@@ -658,7 +657,7 @@ public final class HelpBot {
     
     private static var sseNotificationEnabled: Bool = true
     
-    /// 启用 SSE 通知（与 Android 对齐）
+    /// 启用 SSE 通知（）
     public static func enableSseNotification() {
         operationLock.lock()
         sseNotificationEnabled = true
@@ -675,7 +674,7 @@ public final class HelpBot {
         }
     }
     
-    /// 禁用 SSE 通知（与 Android 对齐）
+    /// 禁用 SSE 通知（）
     public static func disableSseNotification() {
         operationLock.lock()
         sseNotificationEnabled = false
@@ -699,7 +698,7 @@ public final class HelpBot {
         return sseNotificationEnabled
     }
 
-    /// 兼容 Android 入口：enableSseNotification(boolean enable)
+    /// 兼容 入口：enableSseNotification(boolean enable)
     public static func enableSseNotification(_ enable: Bool) {
         if enable {
             enableSseNotification()
@@ -712,7 +711,7 @@ public final class HelpBot {
     
     private static weak var userLoginEventsListener: HelpBotUserLoginEventsListener?
     
-    /// 设置用户登录事件监听器（与 Android 对齐）
+    /// 设置用户登录事件监听器（）
     public static func setUserLoginEventsListener(_ listener: HelpBotUserLoginEventsListener?) {
         operationLock.lock()
         userLoginEventsListener = listener
@@ -721,7 +720,7 @@ public final class HelpBot {
     
     // MARK: - Data Management APIs
     
-    /// 清除匿名用户数据（与 Android 对齐）
+    /// 清除匿名用户数据（）
     public static func clearAnonymousUser(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
         HelpBotThreadPool.shared.submit {
             // 清除本地存储的匿名用户数据

@@ -4,7 +4,7 @@ import UIKit
 /**
  iOS 设备信息实现。
  
- 与 Android AndroidDevice.java 对齐。
+
  */
 public final class IOSDevice: Device {
     

@@ -3,8 +3,7 @@ import WebKit
 
 /**
  WebView 控制台日志捕获器（iOS）。
- 
- 与 Android WebViewConsoleLogger.java 对齐。
+
  用于捕获和记录 WebView 控制台输出。
  */
 public final class WebViewConsoleLogger {

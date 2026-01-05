@@ -3,7 +3,7 @@ import Foundation
 /**
  HelpBot SDK 事件常量定义（iOS）。
  
- 与 Android HelpBotEvent.java 完全对齐，定义所有 WebSDK 事件名称和数据字段常量。
+ 定义所有 WebSDK 事件名称和数据字段常量。
  */
 public final class HelpBotEvent {
     

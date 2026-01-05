@@ -5,7 +5,6 @@ import UserNotifications
 /**
  应用程序工具类（iOS）。
  
- 与 Android ApplicationUtils.java 对齐。
  提供系统通知、资源获取、权限检查等功能。
  */
 public final class ApplicationUtils {

@@ -83,7 +83,7 @@ final class HelpBotWebViewSession: NSObject {
         self.config = config
         self.eventProxy = eventProxy
 
-        // 若上一次初始化失败，允许重试（对齐 Android：只有 FAILED 才允许再次 install）
+        // 若上一次初始化失败，允许重试（只有 FAILED 才允许再次 install）
         if hasInitFailed {
             resetForRetry()
         }
@@ -99,7 +99,7 @@ final class HelpBotWebViewSession: NSObject {
         lastLoadErrorSnapshot = nil
         stateLock.unlock()
 
-        // 初始化超时守护（对齐 Android 默认 35s）
+        // 初始化超时守护
         let effectiveTimeout = max(config.initTimeoutMs, 35_000)
         startInitTimeoutGuard(timeoutMs: effectiveTimeout)
 
@@ -121,7 +121,7 @@ final class HelpBotWebViewSession: NSObject {
     func attach(to viewController: UIViewController, containerView: UIView) {
         mainQueue.async { [weak self] in
             guard let self else { return }
-            // 对齐 Android：若宿主未 preload（或 closeSession 后 WebView 被销毁），此处补一次初始化
+            // 若宿主未 preload（或 closeSession 后 WebView 被销毁），此处补一次初始化
             if self.webView == nil, let cfg = self.config, let proxy = self.eventProxy {
                 self.preload(config: cfg, eventProxy: proxy)
             }
@@ -147,7 +147,6 @@ final class HelpBotWebViewSession: NSObject {
     /**
      销毁会话（释放 WKWebView 与状态）。建议在宿主明确退出/注销或 SDK destroy 时调用。
 
-     对齐 Android `HelpBotWebViewSession.destroySession()`：
      - 释放 WebView 资源
      - 复位 latch/状态机，避免下一次 install 被旧状态污染
      */
@@ -189,7 +188,7 @@ final class HelpBotWebViewSession: NSObject {
     }
 
     /**
-     WebView 加载错误快照（对齐 Android 结构）。
+     WebView 加载错误快照
      */
     struct WebViewLoadErrorSnapshot {
         let type: String
@@ -206,7 +205,7 @@ final class HelpBotWebViewSession: NSObject {
     /**
      获取 WebSDK/Bridge 基础就绪信息（阻塞，禁止主线程）。
 
-     install 判定“通道就绪”的标准（与 Android 对齐）：
+     install 判定“通道就绪”的标准（）：
      - HelpBot 函数存在
      - HelpBotBridge 存在（bridge.js 已加载）
      - Native Bridge 对象存在（window.HelpBotNativeIOS）且具备 sendEvent
@@ -449,7 +448,7 @@ final class HelpBotWebViewSession: NSObject {
     }
 
     /**
-     初始化超时兜底：到期仍未 initialized 且未失败，则标记 init_timeout（对齐 Android）。
+     初始化超时兜底：到期仍未 initialized 且未失败，则标记 init_timeout
      */
     private func startInitTimeoutGuard(timeoutMs: Int) {
         let timeout = Int64(max(timeoutMs, 0))
@@ -763,7 +762,7 @@ final class HelpBotWebViewSession: NSObject {
         )
         stateLock.unlock()
 
-        // 透传给宿主（对齐 Android 事件名）
+        // 透传给宿主
         var data: [String: Any] = ["type": errorType, "retryCount": pageLoadRetryCount]
         if let url { data["url"] = url }
         eventProxy?.sendEvent("WEBVIEW_LOAD_ERROR", data)
@@ -913,7 +912,7 @@ extension HelpBotWebViewSession: WKNavigationDelegate {
         let url = navigationAction.request.url
         let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
 
-        // 主框架严格白名单；子 frame 最小协议白名单（对齐 Android 思路）
+        // 主框架严格白名单；子 frame 最小协议白名单
         if isMainFrame {
             decisionHandler(HelpBotWebViewHelper.isMainFrameUrlAllowed(url) ? .allow : .cancel)
         } else {
@@ -921,7 +920,7 @@ extension HelpBotWebViewSession: WKNavigationDelegate {
         }
     }
 
-    /// TLS/认证挑战处理：异常证书必须拒绝继续加载（对齐 Android：onReceivedSslError -> cancel）
+    /// TLS/认证挑战处理：异常证书必须拒绝继续加载
     func webView(
         _ webView: WKWebView,
         didReceive challenge: URLAuthenticationChallenge,
@@ -1021,7 +1020,7 @@ extension HelpBotWebViewSession: WKNavigationDelegate {
 }
 
 extension HelpBotWebViewSession: WKUIDelegate {
-    /// 禁止多窗口/新 WebView：对齐 Android（setSupportMultipleWindows(false)）。
+    /// 禁止多窗口/新 WebView
     /// - 若是 target=_blank（targetFrame==nil），则尝试在当前 WebView 内加载（仅主框架白名单 URL）。
     func webView(
         _ webView: WKWebView,

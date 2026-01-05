@@ -5,7 +5,6 @@ import Network
 /**
  网络诊断工具（iOS）。
  
- 与 Android NetworkUtils.java 对齐。
  
  设计目标：
  - 不抛异常：所有系统调用 try-catch 包裹，避免影响宿主稳定性
@@ -125,7 +124,7 @@ public final class NetworkUtils {
     }
     
     /**
-     检查网络是否可用（简化版）
+     检查网络是否可用
      
      - Returns: 网络是否可用
      */
