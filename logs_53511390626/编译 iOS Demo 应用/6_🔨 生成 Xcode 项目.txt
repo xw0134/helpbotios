@@ -1,0 +1,27 @@
+﻿2026-01-05T00:39:33.7316370Z ##[group]Run echo "使用 XcodeGen 生成项目..."
+2026-01-05T00:39:33.7316630Z [36;1mecho "使用 XcodeGen 生成项目..."[0m
+2026-01-05T00:39:33.7316830Z [36;1mxcodegen generate[0m
+2026-01-05T00:39:33.7317020Z [36;1mecho "✅ 项目生成完成"[0m
+2026-01-05T00:39:33.7317180Z [36;1mls -la[0m
+2026-01-05T00:39:33.7368230Z shell: /bin/bash -e {0}
+2026-01-05T00:39:33.7368390Z env:
+2026-01-05T00:39:33.7368550Z   DEMO_PATH: SDK/iOS/HelpBotDemo
+2026-01-05T00:39:33.7368740Z   SCHEME: HelpBotDemo
+2026-01-05T00:39:33.7368900Z   CONFIGURATION: Debug
+2026-01-05T00:39:33.7369060Z   EXPORT_METHOD: development
+2026-01-05T00:39:33.7369250Z ##[endgroup]
+2026-01-05T00:39:33.7565800Z 使用 XcodeGen 生成项目...
+2026-01-05T00:39:33.7654590Z ⚙️  Generating plists...
+2026-01-05T00:39:33.7663390Z ⚙️  Generating project...
+2026-01-05T00:39:33.7726960Z ⚙️  Writing project...
+2026-01-05T00:39:33.7782650Z Created project at /Users/runner/work/helpbotios/helpbotios/SDK/iOS/HelpBotDemo/HelpBotDemo.xcodeproj
+2026-01-05T00:39:33.7786040Z ✅ 项目生成完成
+2026-01-05T00:39:33.7827300Z total 32
+2026-01-05T00:39:33.7830270Z drwxr-xr-x  8 runner  staff   256 Jan  5 00:39 .
+2026-01-05T00:39:33.7830700Z drwxr-xr-x  9 runner  staff   288 Jan  5 00:39 ..
+2026-01-05T00:39:33.7831110Z -rw-r--r--  1 runner  staff  4508 Jan  5 00:39 GITHUB_ACTIONS_GUIDE.md
+2026-01-05T00:39:33.7831630Z drwxr-xr-x  5 runner  staff   160 Jan  5 00:39 HelpBotDemo.xcodeproj
+2026-01-05T00:39:33.7832260Z -rw-r--r--  1 runner  staff  1503 Jan  5 00:39 README.md
+2026-01-05T00:39:33.7832780Z drwxr-xr-x  7 runner  staff   224 Jan  5 00:39 Sources
+2026-01-05T00:39:33.7833140Z drwxr-xr-x  3 runner  staff    96 Jan  5 00:39 Supporting
+2026-01-05T00:39:33.7833500Z -rw-r--r--  1 runner  staff   805 Jan  5 00:39 project.yml

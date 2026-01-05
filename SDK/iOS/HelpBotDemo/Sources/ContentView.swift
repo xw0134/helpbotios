@@ -2,7 +2,7 @@ import SwiftUI
 import HelpBotSDK
 
 struct ContentView: View {
-    @StateObject private var vm = HelpBotDemoViewModel()
+    @ObservedObject private var vm = HelpBotDemoViewModel()
 
     var body: some View {
         NavigationView {

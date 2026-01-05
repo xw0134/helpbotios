@@ -1,0 +1,28 @@
+﻿2026-01-05T00:39:33.7877090Z ##[group]Run echo "解析 Swift Package 依赖..."
+2026-01-05T00:39:33.7877400Z [36;1mecho "解析 Swift Package 依赖..."[0m
+2026-01-05T00:39:33.7877630Z [36;1mxcodebuild -resolvePackageDependencies \[0m
+2026-01-05T00:39:33.7877890Z [36;1m  -project HelpBotDemo.xcodeproj \[0m
+2026-01-05T00:39:33.7878110Z [36;1m  -scheme HelpBotDemo[0m
+2026-01-05T00:39:33.7878330Z [36;1mecho "✅ 依赖解析完成"[0m
+2026-01-05T00:39:33.7928720Z shell: /bin/bash -e {0}
+2026-01-05T00:39:33.7928880Z env:
+2026-01-05T00:39:33.7929010Z   DEMO_PATH: SDK/iOS/HelpBotDemo
+2026-01-05T00:39:33.7929190Z   SCHEME: HelpBotDemo
+2026-01-05T00:39:33.7929340Z   CONFIGURATION: Debug
+2026-01-05T00:39:33.7929490Z   EXPORT_METHOD: development
+2026-01-05T00:39:33.7929640Z ##[endgroup]
+2026-01-05T00:39:33.8114990Z 解析 Swift Package 依赖...
+2026-01-05T00:39:34.2994710Z Command line invocation:
+2026-01-05T00:39:34.3002080Z     /Applications/Xcode_15.2.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -project HelpBotDemo.xcodeproj -scheme HelpBotDemo
+2026-01-05T00:39:34.3003800Z 
+2026-01-05T00:39:34.3004330Z User defaults from command line:
+2026-01-05T00:39:34.3004680Z     IDEPackageSupportUseBuiltinSCM = YES
+2026-01-05T00:39:34.3027640Z 
+2026-01-05T00:39:42.1736290Z Resolve Package Graph
+2026-01-05T00:39:47.3820450Z 
+2026-01-05T00:39:47.3921250Z 
+2026-01-05T00:39:47.4021960Z Resolved source packages:
+2026-01-05T00:39:47.4122480Z   HelpBotSDK: /Users/runner/work/helpbotios/helpbotios/SDK/iOS/HelpBotSDK
+2026-01-05T00:39:47.4222830Z 
+2026-01-05T00:39:47.4325100Z resolved source packages: HelpBotSDK
+2026-01-05T00:39:47.4427560Z ✅ 依赖解析完成

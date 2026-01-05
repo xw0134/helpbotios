@@ -1,0 +1,18 @@
+﻿2026-01-05T00:39:29.0873370Z ##[group]Run brew install xcodegen
+2026-01-05T00:39:29.0873630Z [36;1mbrew install xcodegen[0m
+2026-01-05T00:39:29.0873830Z [36;1mxcodegen --version[0m
+2026-01-05T00:39:29.0950760Z shell: /bin/bash -e {0}
+2026-01-05T00:39:29.0950990Z env:
+2026-01-05T00:39:29.0951150Z   DEMO_PATH: SDK/iOS/HelpBotDemo
+2026-01-05T00:39:29.0951340Z   SCHEME: HelpBotDemo
+2026-01-05T00:39:29.0951500Z   CONFIGURATION: Debug
+2026-01-05T00:39:29.0951680Z   EXPORT_METHOD: development
+2026-01-05T00:39:29.0951860Z ##[endgroup]
+2026-01-05T00:39:31.0618220Z ✔︎ JSON API formula_tap_migrations.jws.json
+2026-01-05T00:39:31.0618820Z ✔︎ JSON API cask_tap_migrations.jws.json
+2026-01-05T00:39:32.4935190Z [32m==>[0m [1mFetching downloads for: [32mxcodegen[39m[0m
+2026-01-05T00:39:32.8722280Z ✔︎ Bottle Manifest xcodegen (2.44.1)
+2026-01-05T00:39:33.5785770Z ✔︎ Bottle xcodegen (2.44.1)
+2026-01-05T00:39:33.6344870Z [34m==>[0m [1mPouring xcodegen--2.44.1.arm64_sonoma.bottle.tar.gz[0m
+2026-01-05T00:39:33.7053700Z 🍺  /opt/homebrew/Cellar/xcodegen/2.44.1: 38 files, 7.4MB
+2026-01-05T00:39:33.7283390Z Version: 2.44.1
