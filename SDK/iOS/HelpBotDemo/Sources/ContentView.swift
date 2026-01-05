@@ -10,15 +10,15 @@ struct ContentView: View {
                 Form {
                     Section(header: Text("配置")) {
                         TextField("channelId", text: $vm.channelId)
-                            .textInputAutocapitalization(.never)
+                            .autocapitalization(.none)
                             .disableAutocorrection(true)
 
                         TextField("domain (https://host[:port])", text: $vm.domain)
-                            .textInputAutocapitalization(.never)
+                            .autocapitalization(.none)
                             .disableAutocorrection(true)
 
                         TextField("preGeneratedToken (JWT)", text: $vm.token)
-                            .textInputAutocapitalization(.never)
+                            .autocapitalization(.none)
                             .disableAutocorrection(true)
                     }
 
@@ -36,12 +36,12 @@ struct ContentView: View {
 
                     Section(header: Text("事件日志")) {
                         ForEach(vm.logs.indices, id: \.self) { i in
-                            Text(vm.logs[i]).font(.caption2)
+                            Text(vm.logs[i]).font(.caption)
                         }
                     }
                 }
             }
-            .navigationTitle("HelpBotDemo")
+            .navigationBarTitle("HelpBotDemo", displayMode: .inline)
         }
     }
 }
