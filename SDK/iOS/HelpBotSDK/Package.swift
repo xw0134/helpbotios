@@ -10,7 +10,6 @@ let package = Package(
     products: [
         .library(
             name: "HelpBotSDK",
-            type: .dynamic,
             targets: ["HelpBotSDK"]
         )
     ],
