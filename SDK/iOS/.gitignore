@@ -8,6 +8,10 @@
 *.xcworkspace
 !*.xcworkspace/xcshareddata/swiftpm/
 
+# 重要：本仓库要求 iOS Demo “开箱即用”，因此需要提交 Demo 的 xcodeproj
+!HelpBotDemo/HelpBotDemo.xcodeproj/
+!HelpBotDemo/HelpBotDemo.xcodeproj/**
+
 ## User settings
 xcuserdata/
 
