@@ -227,47 +227,45 @@ jobs:
         run: |
           REPORT_FILE="ios-validation-report.md"
           
-          cat > "$REPORT_FILE" << 'EOF'
-# UnrealEngine iOS 配置验证报告
-
-## 验证时间
-$(date)
-
-## Git 信息
-- Commit: ${{ github.sha }}
-- Branch: ${{ github.ref_name }}
-
-## 插件配置验证
-
-### ✅ HelpBotUE.Build.cs (iOS 配置)
-- iOS Framework: HelpBot.framework
-- 系统框架依赖:
-  - WebKit
-  - Foundation
-  - UIKit
-
-### ✅ iOS Framework
-- Framework 路径: ThirdParty/iOS/HelpBot.framework
-- XCFramework: ThirdParty/iOS/HelpBot.xcframework (支持真机和模拟器)
-
-## Demo 项目验证
-
-### ✅ HelpBotUEDemo.uproject
-- UE 版本: 5.0
-- 插件依赖: HelpBotUE (已启用)
-
-## 验证结果
-
-✅ **iOS 配置验证通过**
-
-## 下一步
-
-由于 GitHub Actions 环境限制,完整的 UE iOS 编译需要:
-1. 使用本地 UE 5.0 环境进行完整构建测试
-2. 或使用专用的 UE 构建服务器
-
-建议在本地 macOS 环境执行完整编译测试。
-EOF
+          echo "# UnrealEngine iOS 配置验证报告" > "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## 验证时间" >> "$REPORT_FILE"
+          date >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## Git 信息" >> "$REPORT_FILE"
+          echo "- Commit: ${{ github.sha }}" >> "$REPORT_FILE"
+          echo "- Branch: ${{ github.ref_name }}" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## 插件配置验证" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "### ✅ HelpBotUE.Build.cs (iOS 配置)" >> "$REPORT_FILE"
+          echo "- iOS Framework: HelpBot.framework" >> "$REPORT_FILE"
+          echo "- 系统框架依赖:" >> "$REPORT_FILE"
+          echo "  - WebKit" >> "$REPORT_FILE"
+          echo "  - Foundation" >> "$REPORT_FILE"
+          echo "  - UIKit" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "### ✅ iOS Framework" >> "$REPORT_FILE"
+          echo "- Framework 路径: ThirdParty/iOS/HelpBot.framework" >> "$REPORT_FILE"
+          echo "- XCFramework: ThirdParty/iOS/HelpBot.xcframework (支持真机和模拟器)" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## Demo 项目验证" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "### ✅ HelpBotUEDemo.uproject" >> "$REPORT_FILE"
+          echo "- UE 版本: 5.0" >> "$REPORT_FILE"
+          echo "- 插件依赖: HelpBotUE (已启用)" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## 验证结果" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "✅ **iOS 配置验证通过**" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "## 下一步" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "由于 GitHub Actions 环境限制,完整的 UE iOS 编译需要:" >> "$REPORT_FILE"
+          echo "1. 使用本地 UE 5.0 环境进行完整构建测试" >> "$REPORT_FILE"
+          echo "2. 或使用专用的 UE 构建服务器" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          echo "建议在本地 macOS 环境执行完整编译测试。" >> "$REPORT_FILE"
           
           cat "$REPORT_FILE"
       
