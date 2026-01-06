@@ -1,0 +1,6 @@
+# 强制关键脚本/CI 配置使用 LF（避免 Windows CRLF 导致 macOS Runner 执行失败）
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+

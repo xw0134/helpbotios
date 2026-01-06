@@ -33,6 +33,10 @@ git push origin main
 3. 选择 `Release` 配置
 4. 点击绿色的 `Run workflow` 按钮
 
+> Demo 云端编译（产出 IPA 文件）：
+> - 工作流：`https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/build-ios-demo.yml`
+> - Artifacts：`HelpBotDemo.ipa`（默认未签名，用于验证编译/交付文件形态；如需可安装 IPA 需配置签名）
+
 ### 步骤 3: 下载编译产物
 
 1. 等待编译完成 (约 5-10 分钟)

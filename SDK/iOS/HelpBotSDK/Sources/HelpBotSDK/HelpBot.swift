@@ -109,10 +109,16 @@ public final class HelpBot {
             callback?.onInitProgress(5, "构建配置")
 
             let fullPrivacyMode = readBool(configMap, key: "fullPrivacyMode", defaultValue: false)
+            let enableSseNotification = readBool(configMap, key: "enableSseNotification", defaultValue: true)
+            let initTimeoutMs = readInt(configMap, key: "initTimeout", defaultValue: 30_000)
+            let webViewLoadTimeoutMs = readInt(configMap, key: "webViewLoadTimeout", defaultValue: 15_000)
             let builder = HelpBotConfig.Builder()
                 .channelId(channelId)
                 .domain(domain)
                 .fullPrivacyMode(fullPrivacyMode)
+                .enableSseNotification(enableSseNotification)
+                .initTimeoutMs(initTimeoutMs)
+                .webViewLoadTimeoutMs(webViewLoadTimeoutMs)
 
             // customConfig：保存所有原始配置，供 SDK 内部（如标题栏）读取
             if let configMap, !configMap.isEmpty {
@@ -150,6 +156,8 @@ public final class HelpBot {
         }
         installState = .installing
         self.config = config
+        // 与 Android 对齐：install 时允许通过 config 预设 SSE 通知开关
+        sseNotificationEnabled = config.enableSseNotification
         operationLock.unlock()
 
         callback?.onInitStart()
@@ -652,6 +660,107 @@ public final class HelpBot {
     public static func getWebSdkHealthSnapshot() -> [String: Any] {
         return HelpBotWebViewSession.shared.getHealthSnapshot()
     }
+
+    /**
+     清理 WebView 网站数据（缓存/Cookie/LocalStorage 等）。
+
+     设计目标：
+     - 与 Android Demo 的 “清理 WebView 缓存” 对齐，提供宿主可调用的诊断/复位能力
+     - 默认仅清理 WebChat index/loader 所在域名的数据（避免误删宿主其它 WebView 数据）
+     - 全程不抛异常，completion 必回调
+     */
+    public static func clearWebViewData(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
+        DispatchQueue.main.async {
+            do {
+                let hosts = Self.getWebChatHosts()
+                let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+
+                // 需要同时清理 default 与 nonPersistent（隐私模式下通常为 nonPersistent，但清理操作无副作用）
+                let stores: [WKWebsiteDataStore] = {
+                    let d = WKWebsiteDataStore.default()
+                    let np = WKWebsiteDataStore.nonPersistent()
+                    if d === np { return [d] }
+                    return [d, np]
+                }()
+
+                let group = DispatchGroup()
+
+                for store in stores {
+                    group.enter()
+                    store.fetchDataRecords(ofTypes: dataTypes) { records in
+                        let targets: [WKWebsiteDataRecord]
+                        if hosts.isEmpty {
+                            targets = records
+                        } else {
+                            let hostSet = Set(hosts.map { $0.lowercased() })
+                            targets = records.filter { hostSet.contains($0.displayName.lowercased()) }
+                        }
+
+                        store.removeData(ofTypes: dataTypes, for: targets) {
+                            // 清理完成后尽量 reload（与 Android 行为一致）
+                            if let wv = HelpBotWebViewSession.shared.webView {
+                                wv.reload()
+                            }
+                            group.leave()
+                        }
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    completion?(.success())
+                }
+            } catch {
+                completion?(.failure(.internalError, "清理 WebView 数据异常: \(error.localizedDescription)"))
+            }
+        }
+    }
+
+    /**
+     获取 WebView 安全基线快照（仅用于诊断/测试台展示）。
+
+     说明：
+     - iOS Demo 无法直接访问 SDK 内部的 WKWebView，因此提供该只读快照接口用于对齐 Android Demo 的 “安全基线扫描”
+     - 不包含敏感数据，不返回 Cookie 内容、不返回 token
+     */
+    public static func getWebViewSecurityBaselineSnapshot() -> [String: Any] {
+        var data: [String: Any] = [:]
+        let hosts = getWebChatHosts()
+        data["webChatHosts"] = hosts
+        data["webChatIndex"] = HelpBotSDKUrls.webChatIndex
+        data["webChatLoaderJs"] = HelpBotSDKUrls.webChatLoaderJs
+        data["isInitialized"] = isInitialized()
+        data["isConversationVisible"] = isConversationVisible()
+
+        guard let wv = HelpBotWebViewSession.shared.webView else {
+            data["hasWebView"] = false
+            return data
+        }
+        data["hasWebView"] = true
+        data["currentUrl"] = wv.url?.absoluteString ?? ""
+
+        let pref = wv.configuration.preferences
+        data["javaScriptEnabled"] = pref.javaScriptEnabled
+        data["javaScriptCanOpenWindowsAutomatically"] = pref.javaScriptCanOpenWindowsAutomatically
+
+        // 隐私模式判定：websiteDataStore 是否为 nonPersistent
+        data["nonPersistentDataStore"] = (wv.configuration.websiteDataStore === WKWebsiteDataStore.nonPersistent())
+        data["allowsLinkPreview"] = wv.allowsLinkPreview
+        if #available(iOS 16.4, *) {
+            data["isInspectable"] = wv.isInspectable
+        }
+
+        // Bridge 通道约束（不枚举 handler 列表，避免依赖私有 API）
+        data["nativeBridgeName"] = HelpBotWebViewHelper.nativeBridgeName
+        data["sseMessageHandlerName"] = HelpBotWebViewHelper.sseMessageHandlerName
+        #if DEBUG
+        data["consoleLogEnabled"] = true
+        data["consoleLogHandlerName"] = HelpBotWebViewHelper.consoleLogHandlerName
+        #else
+        data["consoleLogEnabled"] = false
+        #endif
+
+        return data
+    }
     
     // MARK: - SSE Notification APIs
     
@@ -1044,6 +1153,26 @@ public final class HelpBot {
             return t.lowercased() == "true" || t == "1" || t.lowercased() == "yes"
         }
         return defaultValue
+    }
+
+    private static func readInt(_ map: [String: Any]?, key: String, defaultValue: Int) -> Int {
+        guard let map else { return defaultValue }
+        guard let v = map[key] else { return defaultValue }
+        if let i = v as? Int { return i }
+        if let n = v as? NSNumber { return n.intValue }
+        if let s = v as? String {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if t.isEmpty { return defaultValue }
+            return Int(t) ?? defaultValue
+        }
+        return defaultValue
+    }
+
+    private static func getWebChatHosts() -> [String] {
+        var hosts: [String] = []
+        if let h1 = URL(string: HelpBotSDKUrls.webChatIndex)?.host, !h1.isEmpty { hosts.append(h1) }
+        if let h2 = URL(string: HelpBotSDKUrls.webChatLoaderJs)?.host, !h2.isEmpty, !hosts.contains(h2) { hosts.append(h2) }
+        return hosts
     }
 
     private static func nowMs() -> Int64 {

@@ -1,203 +1,128 @@
-name: Build iOS Demo
-
-on:
-  # 手动触发
+name: Build iOS Demo (IPA)
+"on":
   workflow_dispatch:
     inputs:
-      build_configuration:
-        description: '编译配置'
+      configuration:
+        description: Build configuration (Debug/Release)
         required: true
-        default: 'Debug'
+        default: Debug
         type: choice
         options:
           - Debug
           - Release
-      export_method:
-        description: '导出方式'
-        required: true
-        default: 'development'
-        type: choice
-        options:
-          - development
-          - ad-hoc
-          - app-store
-  
-  # 代码推送时自动触发
   push:
-    branches:
-      - main
-      - develop
     paths:
-      - 'SDK/iOS/HelpBotDemo/**'
-      - 'SDK/iOS/HelpBotSDK/**'
-      - '.github/workflows/build-ios-demo.yml'
-  
-  # PR时触发
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - ".github/workflows/build-ios-demo.yml"
   pull_request:
     paths:
-      - 'SDK/iOS/HelpBotDemo/**'
-      - 'SDK/iOS/HelpBotSDK/**'
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - ".github/workflows/build-ios-demo.yml"
 
 jobs:
-  build-ios-demo:
-    name: 编译 iOS Demo 应用
-    runs-on: macos-14
-    
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
     env:
-      DEMO_PATH: SDK/iOS/HelpBotDemo
+      DEMO_DIR: SDK/iOS/HelpBotDemo
+      PROJECT: HelpBotDemo.xcodeproj
       SCHEME: HelpBotDemo
-      CONFIGURATION: ${{ github.event.inputs.build_configuration || 'Debug' }}
-      EXPORT_METHOD: ${{ github.event.inputs.export_method || 'development' }}
-    
+      CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
+      DERIVED_DATA: build/DerivedData
     steps:
-      # 1. 检出代码
-      - name: 📥 检出代码
+      - name: Checkout
         uses: actions/checkout@v4
-      
-      # 2. 显示环境信息
-      - name: 🔍 显示环境信息
+
+      - name: Print toolchain versions
         run: |
-          echo "=== 系统信息 ==="
+          set -euo pipefail
           sw_vers
-          echo ""
-          echo "=== Xcode 版本 ==="
           xcodebuild -version
-          echo ""
-          echo "=== Swift 版本 ==="
           swift --version
-      
-      # 3. 选择 Xcode 版本
-      - name: ⚙️ 选择 Xcode 版本
+
+      - name: Resolve SwiftPM dependencies
         run: |
-          sudo xcode-select -switch /Applications/Xcode_15.2.app
-          xcodebuild -version
-      
-      # 4. 安装 XcodeGen
-      - name: 📦 安装 XcodeGen
-        run: |
-          brew install xcodegen
-          xcodegen --version
-      
-      # 5. 生成 Xcode 项目
-      - name: 🔨 生成 Xcode 项目
-        working-directory: ${{ env.DEMO_PATH }}
-        run: |
-          echo "使用 XcodeGen 生成项目..."
-          xcodegen generate
-          echo "✅ 项目生成完成"
-          ls -la
-      
-      # 6. 解析依赖 (Swift Package Manager)
-      - name: 📦 解析 Swift Package 依赖
-        working-directory: ${{ env.DEMO_PATH }}
-        run: |
-          echo "解析 Swift Package 依赖..."
+          set -euo pipefail
+          cd "$DEMO_DIR"
           xcodebuild -resolvePackageDependencies \
-            -project HelpBotDemo.xcodeproj \
-            -scheme ${{ env.SCHEME }}
-          echo "✅ 依赖解析完成"
-      
-      # 7. 编译 iOS 模拟器版本
-      - name: 🔨 编译 iOS 模拟器版本
-        working-directory: ${{ env.DEMO_PATH }}
+            -project "$PROJECT" \
+            -scheme "$SCHEME"
+
+      - name: Build (iOS Simulator, no codesign)
         run: |
-          echo "开始编译 iOS 模拟器版本..."
-          xcodebuild build \
-            -project HelpBotDemo.xcodeproj \
-            -scheme ${{ env.SCHEME }} \
-            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
-            -configuration ${{ env.CONFIGURATION }} \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-          echo "✅ 模拟器版本编译完成"
-      
-      # 8. 运行测试 (可选)
-      - name: 🧪 运行测试
-        if: false  # 如果有测试则设为 true
-        working-directory: ${{ env.DEMO_PATH }}
-        run: |
-          xcodebuild test \
-            -project HelpBotDemo.xcodeproj \
-            -scheme ${{ env.SCHEME }} \
-            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest"
-      
-      # 9. 编译真机版本 (Archive)
-      - name: 🔨 编译真机版本 (Archive)
-        working-directory: ${{ env.DEMO_PATH }}
-        run: |
-          echo "开始编译真机版本..."
-          xcodebuild archive \
-            -project HelpBotDemo.xcodeproj \
-            -scheme ${{ env.SCHEME }} \
-            -archivePath build/HelpBotDemo.xcarchive \
-            -configuration ${{ env.CONFIGURATION }} \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-          echo "✅ Archive 完成"
-      
-      # 10. 生成编译报告
-      - name: 📄 生成编译报告
-        working-directory: ${{ env.DEMO_PATH }}
-        run: |
-          REPORT_FILE="build/build-report.txt"
+          set -euo pipefail
+          cd "$DEMO_DIR"
           mkdir -p build
-          
-          cat > "$REPORT_FILE" << EOF
-          === HelpBot iOS Demo 编译报告 ===
-          
-          编译时间: $(date)
-          编译配置: ${{ env.CONFIGURATION }}
-          导出方式: ${{ env.EXPORT_METHOD }}
-          Git Commit: ${{ github.sha }}
-          Git Branch: ${{ github.ref_name }}
-          
-          === 环境信息 ===
-          $(sw_vers)
-          
-          $(xcodebuild -version)
-          
-          $(swift --version)
-          
-          === 编译产物 ===
-          $(ls -lh build/)
-          
-          === 项目信息 ===
-          Scheme: ${{ env.SCHEME }}
-          Bundle ID: com.example.helpbot.demo
-          Deployment Target: iOS 13.0
-          
-          EOF
-          
-          echo "✅ 编译报告生成完成"
-          cat "$REPORT_FILE"
-      
-      # 11. 上传编译产物
-      - name: 📤 上传编译产物
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build/xcodebuild-simulator.log
+
+      - name: Build (iOS Device, unsigned, no codesign)
+        run: |
+          set -euo pipefail
+          cd "$DEMO_DIR"
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build/xcodebuild-iphoneos.log
+
+      - name: Package .ipa (Simulator + iPhoneOS unsigned)
+        run: |
+          set -euo pipefail
+          cd "$DEMO_DIR"
+          mkdir -p build
+
+          package_ipa() {
+            local app_path="$1"
+            local out_ipa="$2"
+            if [[ ! -d "$app_path" ]]; then
+              echo "App not found at: $app_path"
+              find "$DERIVED_DATA/Build/Products" -maxdepth 3 -type d -name "*.app" || true
+              return 1
+            fi
+            rm -rf build/Payload
+            mkdir -p build/Payload
+            cp -R "$app_path" build/Payload/
+            (cd build && /usr/bin/zip -qry "$out_ipa" Payload)
+            rm -rf build/Payload
+            echo "✅ Created: build/$out_ipa"
+          }
+
+          SIM_APP="$DERIVED_DATA/Build/Products/${CONFIGURATION}-iphonesimulator/HelpBotDemo.app"
+          IOS_APP="$DERIVED_DATA/Build/Products/${CONFIGURATION}-iphoneos/HelpBotDemo.app"
+
+          package_ipa "$SIM_APP" "HelpBotDemo-simulator.ipa"
+          package_ipa "$IOS_APP" "HelpBotDemo-iphoneos-unsigned.ipa"
+
+          # 统一输出文件名，方便使用方直接下载
+          cp -f "build/HelpBotDemo-iphoneos-unsigned.ipa" "build/HelpBotDemo.ipa"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
+          name: HelpBotDemo-${{ inputs.configuration || 'Debug' }}-${{ github.sha }}
+          if-no-files-found: error
           path: |
-            ${{ env.DEMO_PATH }}/build/HelpBotDemo.xcarchive
-            ${{ env.DEMO_PATH }}/build/build-report.txt
-          retention-days: 30
-      
-      # 12. 输出总结
-      - name: 📋 编译成功总结
-        run: |
-          echo "🎉 iOS Demo 编译成功!"
-          echo ""
-          echo "📦 编译产物:"
-          echo "  - HelpBotDemo.xcarchive"
-          echo "  - build-report.txt"
-          echo ""
-          echo "📥 下载方式:"
-          echo "  1. 访问 Actions 页面: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "  2. 在 Artifacts 区域下载编译产物"
-          echo ""
-          echo "✅ 编译配置: ${{ env.CONFIGURATION }}"
-          echo "✅ Git Commit: ${{ github.sha }}"
-          echo ""
-          echo "💡 注意: 此编译未签名,仅用于验证编译流程"
-          echo "   如需真机安装,请在本地使用 Xcode 签名后安装"
+            SDK/iOS/HelpBotDemo/build/HelpBotDemo.ipa
+            SDK/iOS/HelpBotDemo/build/HelpBotDemo-simulator.ipa
+            SDK/iOS/HelpBotDemo/build/HelpBotDemo-iphoneos-unsigned.ipa
+            SDK/iOS/HelpBotDemo/build/xcodebuild-simulator.log
+            SDK/iOS/HelpBotDemo/build/xcodebuild-iphoneos.log
+
+

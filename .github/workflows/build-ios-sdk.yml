@@ -1,343 +1,57 @@
 name: Build iOS SDK
-
-on:
-  # 手动触发
+"on":
   workflow_dispatch:
     inputs:
-      build_configuration:
-        description: '编译配置'
+      configuration:
+        description: Build configuration (Release/Debug)
         required: true
-        default: 'Release'
+        default: Release
         type: choice
         options:
-          - Debug
           - Release
-  
-  # 代码推送时自动触发
+          - Debug
   push:
-    branches:
-      - main
-      - develop
     paths:
-      - 'SDK/iOS/HelpBotSDK/**'
-      - '.github/workflows/build-ios-sdk.yml'
-  
-  # PR时触发
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_local.sh"
+      - ".github/workflows/build-ios-sdk.yml"
   pull_request:
     paths:
-      - 'SDK/iOS/HelpBotSDK/**'
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_local.sh"
+      - ".github/workflows/build-ios-sdk.yml"
 
 jobs:
-  build-ios-sdk:
-    name: 编译 iOS SDK
-    runs-on: macos-14  # 使用最新的 macOS runner (支持 Xcode 15+)
-    
-    env:
-      SCHEME: HelpBotSDK
-      SDK_PATH: SDK/iOS/HelpBotSDK
-      BUILD_DIR: build
-      CONFIGURATION: ${{ github.event.inputs.build_configuration || 'Release' }}
-    
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
     steps:
-      # 1. 检出代码
-      - name: 📥 检出代码
+      - name: Checkout
         uses: actions/checkout@v4
-      
-      # 2. 显示环境信息
-      - name: 🔍 显示环境信息
+
+      - name: Print toolchain versions
         run: |
-          echo "=== 系统信息 ==="
+          set -euo pipefail
           sw_vers
-          echo ""
-          echo "=== Xcode 版本 ==="
           xcodebuild -version
-          echo ""
-          echo "=== Swift 版本 ==="
           swift --version
-          echo ""
-          echo "=== 可用的 SDK ==="
-          xcodebuild -showsdks
-      
-      # 3. 选择 Xcode 版本
-      - name: ⚙️ 选择 Xcode 版本
-        run: |
-          sudo xcode-select -switch /Applications/Xcode_15.2.app
-          xcodebuild -version
-      
-      # 4. 清理旧的编译产物
-      - name: 🧹 清理旧的编译产物
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          rm -rf ${{ env.BUILD_DIR }}
-          rm -rf .build
-          echo "✅ 清理完成"
-      
-      # 5. 编译 iOS 真机架构
-      - name: 🔨 编译 iOS 真机架构 (arm64)
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          echo "开始编译 iOS 真机架构..."
-          xcodebuild archive \
-            -scheme ${{ env.SCHEME }} \
-            -destination "generic/platform=iOS" \
-            -archivePath "${{ env.BUILD_DIR }}/ios.xcarchive" \
-            -configuration ${{ env.CONFIGURATION }} \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            ONLY_ACTIVE_ARCH=NO
-          echo "✅ iOS 真机架构编译完成"
-      
-      # 6. 编译 iOS 模拟器架构
-      - name: 🔨 编译 iOS 模拟器架构 (x86_64, arm64)
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          echo "开始编译 iOS 模拟器架构..."
-          xcodebuild archive \
-            -scheme ${{ env.SCHEME }} \
-            -destination "generic/platform=iOS Simulator" \
-            -archivePath "${{ env.BUILD_DIR }}/ios-simulator.xcarchive" \
-            -configuration ${{ env.CONFIGURATION }} \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            ONLY_ACTIVE_ARCH=NO
-          echo "✅ iOS 模拟器架构编译完成"
-      
-      # 7. 创建 XCFramework
-      - name: 📦 创建 XCFramework
-        working-directory: ${{ env.SDK_PATH }}
+
+      - name: Build XCFramework (HelpBotSDK)
+        env:
+          CONFIGURATION: ${{ inputs.configuration || 'Release' }}
         run: |
           set -euo pipefail
-          echo "开始创建 XCFramework..."
-          
-          SCHEME="${{ env.SCHEME }}"
-          BUILD_DIR="${{ env.BUILD_DIR }}"
-          DEVICE_ARCHIVE="${BUILD_DIR}/ios.xcarchive"
-          SIM_ARCHIVE="${BUILD_DIR}/ios-simulator.xcarchive"
-          OUTPUT="${BUILD_DIR}/${SCHEME}.xcframework"
-          
-          # 兼容 SwiftPM / Xcode 不同产物形态：
-          # - 优先使用 .framework
-          # - 若无 framework，则回退使用 -library（.a/.dylib）；若仅有 .o，则先打成 .a
-          # - 为保证 Swift 可用性，尽量携带 *.swiftmodule 目录
-          resolve_framework() {
-            local archive="$1"
-            local expected="${archive}/Products/Library/Frameworks/${SCHEME}.framework"
-            if [[ -d "$expected" && -f "${expected}/Info.plist" ]]; then
-              echo "$expected"
-              return 0
-            fi
-            local found
-            found="$(find "$archive" -maxdepth 8 -type d -name "${SCHEME}.framework" 2>/dev/null | head -n 1 || true)"
-            if [[ -n "${found}" && -f "${found}/Info.plist" ]]; then
-              echo "$found"
-              return 0
-            fi
-            return 1
-          }
-          
-          resolve_library_with_modules() {
-            local archive="$1"
-            local out_dir="$2"
-            mkdir -p "$out_dir"
-            
-            local lib=""
-            lib="$(find "$archive" -maxdepth 12 -type f \( -name "lib${SCHEME}.a" -o -name "${SCHEME}.a" \) 2>/dev/null | head -n 1 || true)"
-            if [[ -z "$lib" ]]; then
-              lib="$(find "$archive" -maxdepth 12 -type f \( -name "lib${SCHEME}.dylib" -o -name "${SCHEME}.dylib" \) 2>/dev/null | head -n 1 || true)"
-            fi
-            if [[ -z "$lib" ]]; then
-              local obj=""
-              obj="$(find "$archive" -maxdepth 12 -type f \( -name "${SCHEME}.o" -o -name "lib${SCHEME}.o" \) 2>/dev/null | head -n 1 || true)"
-              if [[ -n "$obj" ]]; then
-                lib="${out_dir}/lib${SCHEME}.a"
-                /usr/bin/libtool -static -o "$lib" "$obj"
-              fi
-            fi
-            
-            if [[ -z "$lib" || ! -f "$lib" ]]; then
-              return 1
-            fi
-            
-            # 复制库到 staging（避免 xcodebuild 读取到 archive 内的怪异路径/符号链接）
-            local staged_lib="${out_dir}/$(basename "$lib")"
-            if [[ "$lib" != "$staged_lib" ]]; then
-              cp -f "$lib" "$staged_lib"
-            fi
-            
-            # 尽量携带 swiftmodule（Swift import 依赖）
-            local module_dir=""
-            module_dir="$(find "$archive" -maxdepth 14 -type d -name "${SCHEME}.swiftmodule" 2>/dev/null | head -n 1 || true)"
-            if [[ -n "$module_dir" && -d "$module_dir" ]]; then
-              cp -R "$module_dir" "${out_dir}/"
-            fi
-            
-            echo "$staged_lib"
-            return 0
-          }
-          
-          rm -rf "$OUTPUT"
-          
-          if FW_DEVICE="$(resolve_framework "$DEVICE_ARCHIVE")" && FW_SIM="$(resolve_framework "$SIM_ARCHIVE")"; then
-            echo "检测到 Framework 产物:"
-            echo "  device: $FW_DEVICE"
-            echo "  sim:    $FW_SIM"
-            xcodebuild -create-xcframework \
-              -framework "$FW_DEVICE" \
-              -framework "$FW_SIM" \
-              -output "$OUTPUT"
-          else
-            echo "未检测到有效 Framework，回退使用 -library 方式创建 XCFramework..."
-            STAGING_DIR="${BUILD_DIR}/_xcframework_staging"
-            rm -rf "$STAGING_DIR"
-            mkdir -p "$STAGING_DIR"
-            
-            LIB_DEVICE="$(resolve_library_with_modules "$DEVICE_ARCHIVE" "${STAGING_DIR}/device")"
-            LIB_SIM="$(resolve_library_with_modules "$SIM_ARCHIVE" "${STAGING_DIR}/simulator")"
-            
-            echo "检测到 Library 产物:"
-            echo "  device: $LIB_DEVICE"
-            echo "  sim:    $LIB_SIM"
-            
-            # headers 目录必须存在（对纯 Swift 模块可为空），保持 xcodebuild 参数完整
-            HDR_DIR="${STAGING_DIR}/headers"
-            mkdir -p "$HDR_DIR"
-            
-            xcodebuild -create-xcframework \
-              -library "$LIB_DEVICE" -headers "$HDR_DIR" \
-              -library "$LIB_SIM" -headers "$HDR_DIR" \
-              -output "$OUTPUT"
-          fi
-          
-          echo "✅ XCFramework 创建完成"
-      
-      # 8. 验证 XCFramework
-      - name: ✅ 验证 XCFramework
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          set -euo pipefail
-          echo "=== XCFramework 结构 ==="
-          XCROOT="${{ env.BUILD_DIR }}/${{ env.SCHEME }}.xcframework"
-          ls -lR "$XCROOT"
-          echo ""
-          echo "=== 验证架构 ==="
-          
-          resolve_bin() {
-            local platform_dir="$1"
-            local scheme="${{ env.SCHEME }}"
-            local fw_bin="${platform_dir}/${scheme}.framework/${scheme}"
-            if [[ -f "$fw_bin" ]]; then
-              echo "$fw_bin"
-              return 0
-            fi
-            local lib
-            lib="$(find "$platform_dir" -maxdepth 3 -type f \( -name "lib${scheme}.a" -o -name "${scheme}.a" -o -name "lib${scheme}.dylib" -o -name "${scheme}.dylib" \) 2>/dev/null | head -n 1 || true)"
-            if [[ -n "$lib" ]]; then
-              echo "$lib"
-              return 0
-            fi
-            return 1
-          }
-          
-          echo "iOS 真机架构:"
-          BIN_DEVICE="$(resolve_bin "$XCROOT/ios-arm64")"
-          echo "  bin: $BIN_DEVICE"
-          lipo -info "$BIN_DEVICE" || true
-          echo ""
-          
-          echo "iOS 模拟器架构:"
-          BIN_SIM="$(resolve_bin "$XCROOT/ios-arm64_x86_64-simulator")"
-          echo "  bin: $BIN_SIM"
-          lipo -info "$BIN_SIM" || true
-          echo ""
-          echo "✅ XCFramework 验证通过"
-      
-      # 9. 生成编译报告
-      - name: 📄 生成编译报告
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          set -euo pipefail
-          REPORT_FILE="${{ env.BUILD_DIR }}/build-report.txt"
-          echo "=== HelpBot iOS SDK 编译报告 ===" > $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "编译时间: $(date)" >> $REPORT_FILE
-          echo "编译配置: ${{ env.CONFIGURATION }}" >> $REPORT_FILE
-          echo "Git Commit: ${{ github.sha }}" >> $REPORT_FILE
-          echo "Git Branch: ${{ github.ref_name }}" >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "=== 环境信息 ===" >> $REPORT_FILE
-          sw_vers >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          xcodebuild -version >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          swift --version >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "=== XCFramework 信息 ===" >> $REPORT_FILE
-          XCROOT="${{ env.BUILD_DIR }}/${{ env.SCHEME }}.xcframework"
-          ls -lh "$XCROOT" >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "=== 架构信息 ===" >> $REPORT_FILE
-          echo "iOS 真机:" >> $REPORT_FILE
-          
-          resolve_bin() {
-            local platform_dir="$1"
-            local scheme="${{ env.SCHEME }}"
-            local fw_bin="${platform_dir}/${scheme}.framework/${scheme}"
-            if [[ -f "$fw_bin" ]]; then
-              echo "$fw_bin"
-              return 0
-            fi
-            local lib
-            lib="$(find "$platform_dir" -maxdepth 3 -type f \( -name "lib${scheme}.a" -o -name "${scheme}.a" -o -name "lib${scheme}.dylib" -o -name "${scheme}.dylib" \) 2>/dev/null | head -n 1 || true)"
-            if [[ -n "$lib" ]]; then
-              echo "$lib"
-              return 0
-            fi
-            return 1
-          }
-          
-          BIN_DEVICE="$(resolve_bin "$XCROOT/ios-arm64")"
-          echo "bin: $BIN_DEVICE" >> $REPORT_FILE
-          lipo -info "$BIN_DEVICE" >> $REPORT_FILE 2>&1 || true
-          echo "" >> $REPORT_FILE
-          echo "iOS 模拟器:" >> $REPORT_FILE
-          BIN_SIM="$(resolve_bin "$XCROOT/ios-arm64_x86_64-simulator")"
-          echo "bin: $BIN_SIM" >> $REPORT_FILE
-          lipo -info "$BIN_SIM" >> $REPORT_FILE 2>&1 || true
-          echo "" >> $REPORT_FILE
-          echo "✅ 编译报告生成完成"
-          cat $REPORT_FILE
-      
-      # 10. 打包 XCFramework
-      - name: 📦 打包 XCFramework
-        working-directory: ${{ env.SDK_PATH }}
-        run: |
-          cd ${{ env.BUILD_DIR }}
-          zip -r ${{ env.SCHEME }}.xcframework.zip ${{ env.SCHEME }}.xcframework
-          echo "✅ XCFramework 打包完成"
-          ls -lh ${{ env.SCHEME }}.xcframework.zip
-      
-      # 11. 上传 XCFramework 为 Artifact
-      - name: 📤 上传 XCFramework
+          chmod +x SDK/iOS/build_local.sh
+          cd SDK/iOS/HelpBotSDK
+          ../build_local.sh
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HelpBotSDK-${{ env.CONFIGURATION }}-${{ github.sha }}
+          name: HelpBotSDK-${{ inputs.configuration || 'Release' }}-${{ github.sha }}
+          if-no-files-found: error
           path: |
-            ${{ env.SDK_PATH }}/${{ env.BUILD_DIR }}/${{ env.SCHEME }}.xcframework.zip
-            ${{ env.SDK_PATH }}/${{ env.BUILD_DIR }}/build-report.txt
-          retention-days: 30
-      
-      # 12. 输出下载链接
-      - name: 📋 编译成功总结
-        run: |
-          echo "🎉 iOS SDK 编译成功!"
-          echo ""
-          echo "📦 编译产物:"
-          echo "  - HelpBotSDK.xcframework.zip"
-          echo "  - build-report.txt"
-          echo ""
-          echo "📥 下载方式:"
-          echo "  1. 访问 Actions 页面: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "  2. 在 Artifacts 区域下载编译产物"
-          echo ""
-          echo "✅ 编译配置: ${{ env.CONFIGURATION }}"
-          echo "✅ Git Commit: ${{ github.sha }}"
+            SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework.zip
+            SDK/iOS/HelpBotSDK/build/build-report.txt
+
+

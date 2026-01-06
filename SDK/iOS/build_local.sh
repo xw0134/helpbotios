@@ -4,13 +4,13 @@
 # 用途: 在 macOS 上本地编译 iOS SDK (作为 GitHub Actions 的备用方案)
 # 使用: chmod +x build_local.sh && ./build_local.sh
 
-set -e  # 遇到错误立即退出
+set -euo pipefail  # 遇到错误立即退出；未定义变量报错；管道失败可感知
 
 # ============================================
 # 配置区域
 # ============================================
 SCHEME="HelpBotSDK"
-CONFIGURATION="Release"  # 可选: Debug, Release
+CONFIGURATION="${CONFIGURATION:-Release}"  # 可选: Debug, Release（允许通过环境变量覆盖）
 BUILD_DIR="build"
 XCFRAMEWORK_NAME="${SCHEME}.xcframework"
 
@@ -47,6 +47,36 @@ print_info() {
 }
 
 # ============================================
+# xcodebuild wrapper（CI 兼容：可选 xcpretty，不重复编译）
+# ============================================
+run_xcodebuild_archive() {
+    local destination="$1"
+    local archive_path="$2"
+    local configuration="$3"
+
+    if command -v xcpretty &> /dev/null; then
+        xcodebuild archive \
+            -scheme "$SCHEME" \
+            -destination "$destination" \
+            -archivePath "$archive_path" \
+            -configuration "$configuration" \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            ONLY_ACTIVE_ARCH=NO \
+            | xcpretty
+    else
+        xcodebuild archive \
+            -scheme "$SCHEME" \
+            -destination "$destination" \
+            -archivePath "$archive_path" \
+            -configuration "$configuration" \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            ONLY_ACTIVE_ARCH=NO
+    fi
+}
+
+# ============================================
 # 1. 环境检查
 # ============================================
 print_header "1. 环境检查"
@@ -78,14 +108,20 @@ echo ""
 print_info "Swift 版本:"
 swift --version
 
-# 检查 Swift 版本 (需要 5.7+)
-SWIFT_VERSION=$(swift --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
-REQUIRED_VERSION="5.7"
-if (( $(echo "$SWIFT_VERSION < $REQUIRED_VERSION" | bc -l) )); then
-    print_warning "Swift 版本 $SWIFT_VERSION 低于推荐版本 $REQUIRED_VERSION"
-    print_warning "可能会遇到编译问题,建议升级 Xcode"
+# 检查 Swift 版本 (推荐 5.10+；对齐 Xcode 26)
+SWIFT_VERSION="$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+).*/\1/p' | head -n 1 || true)"
+REQUIRED_VERSION="5.10"
+if [[ -z "$SWIFT_VERSION" ]]; then
+    print_warning "未能解析 Swift 版本号，跳过版本校验（不影响编译）。"
+elif command -v bc &> /dev/null; then
+    if (( $(echo "$SWIFT_VERSION < $REQUIRED_VERSION" | bc -l) )); then
+        print_warning "Swift 版本 $SWIFT_VERSION 低于推荐版本 $REQUIRED_VERSION"
+        print_warning "可能会遇到编译问题,建议升级 Xcode"
+    else
+        print_success "Swift 版本符合要求: $SWIFT_VERSION"
+    fi
 else
-    print_success "Swift 版本符合要求: $SWIFT_VERSION"
+    print_warning "bc 未安装，跳过 Swift 版本比较（不影响编译）。"
 fi
 
 # ============================================
@@ -112,22 +148,7 @@ print_success "创建新的 $BUILD_DIR 目录"
 print_header "3. 编译 iOS 真机架构 (arm64)"
 
 print_info "开始编译..."
-xcodebuild archive \
-    -scheme "$SCHEME" \
-    -destination "generic/platform=iOS" \
-    -archivePath "$BUILD_DIR/ios.xcarchive" \
-    -configuration "$CONFIGURATION" \
-    SKIP_INSTALL=NO \
-    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-    ONLY_ACTIVE_ARCH=NO \
-    | xcpretty || xcodebuild archive \
-        -scheme "$SCHEME" \
-        -destination "generic/platform=iOS" \
-        -archivePath "$BUILD_DIR/ios.xcarchive" \
-        -configuration "$CONFIGURATION" \
-        SKIP_INSTALL=NO \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        ONLY_ACTIVE_ARCH=NO
+run_xcodebuild_archive "generic/platform=iOS" "$BUILD_DIR/ios.xcarchive" "$CONFIGURATION"
 
 print_success "iOS 真机架构编译完成"
 
@@ -137,22 +158,7 @@ print_success "iOS 真机架构编译完成"
 print_header "4. 编译 iOS 模拟器架构 (x86_64, arm64)"
 
 print_info "开始编译..."
-xcodebuild archive \
-    -scheme "$SCHEME" \
-    -destination "generic/platform=iOS Simulator" \
-    -archivePath "$BUILD_DIR/ios-simulator.xcarchive" \
-    -configuration "$CONFIGURATION" \
-    SKIP_INSTALL=NO \
-    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-    ONLY_ACTIVE_ARCH=NO \
-    | xcpretty || xcodebuild archive \
-        -scheme "$SCHEME" \
-        -destination "generic/platform=iOS Simulator" \
-        -archivePath "$BUILD_DIR/ios-simulator.xcarchive" \
-        -configuration "$CONFIGURATION" \
-        SKIP_INSTALL=NO \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        ONLY_ACTIVE_ARCH=NO
+run_xcodebuild_archive "generic/platform=iOS Simulator" "$BUILD_DIR/ios-simulator.xcarchive" "$CONFIGURATION"
 
 print_success "iOS 模拟器架构编译完成"
 
@@ -162,7 +168,6 @@ print_success "iOS 模拟器架构编译完成"
 print_header "5. 创建 XCFramework"
 
 print_info "开始创建 XCFramework..."
-set -euo pipefail
 
 DEVICE_ARCHIVE="$BUILD_DIR/ios.xcarchive"
 SIM_ARCHIVE="$BUILD_DIR/ios-simulator.xcarchive"

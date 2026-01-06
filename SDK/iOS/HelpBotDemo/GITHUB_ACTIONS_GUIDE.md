@@ -37,7 +37,16 @@ iOS Demo 应用已配置 GitHub Actions 自动编译,支持:
 
 ## 📦 编译产物说明
 
-### HelpBotDemo.xcarchive
+### HelpBotDemo.ipa（CI 默认：未签名）
+
+云端编译会生成 `HelpBotDemo.ipa`（以及 `HelpBotDemo-iphoneos-unsigned.ipa` 备份命名）。  
+注意：**默认不包含签名**（未注入证书/Provisioning Profile），因此：
+
+- ✅ 产出 IPA 文件（满足交付文件形态/后续签名）
+- ✅ 可用于验证“真机架构可编译”
+- ❌ 不能直接安装到真机（需要签名）
+
+### HelpBotDemo.xcarchive（可选）
 
 这是 Xcode Archive 文件,包含:
 - 编译好的应用二进制
@@ -131,8 +140,9 @@ CODE_SIGNING_ALLOWED=NO
 
 **这意味着**:
 - ✅ 可以验证代码编译通过
+- ✅ 可以产出 IPA 文件（未签名）
 - ✅ 可以检查编译产物结构
-- ❌ 无法直接安装到真机
+- ❌ 无法直接安装到真机（需要签名）
 - ❌ 无法提交到 App Store
 
 ### 如需真机安装
