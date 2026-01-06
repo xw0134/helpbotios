@@ -1037,34 +1037,27 @@ extension HelpBotWebViewSession: WKUIDelegate {
         return nil
     }
 
-    // 文件选择：支持 Web 侧 <input type="file">（可选）
-    //
-    // 兼容性说明：
-    // - 在部分 Xcode / WebKit Swift Overlay 组合下，`WKOpenPanelParameters` 可能无法被 Swift 直接识别
-    //   （表现为“cannot find type 'WKOpenPanelParameters' in scope”）。
-    // - 这里改为 @objc selector 形式，避免对该类型产生编译期依赖，同时依旧能被 WebKit 通过 selector 回调。
-    @available(iOS 14.0, *)
-    @objc(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)
+    /**
+     文件选择：支持 Web 侧 `<input type="file">`（可选）。
+     
+     - 兼容性：iOS 12+ 可编译；该回调属于 WKUIDelegate 的标准 API（Xcode 16+/WebKit overlay 会对 selector 更严格）。
+     - 安全性：仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发。
+     */
+    @available(iOS 10.0, *)
     func webView(
         _ webView: WKWebView,
-        runOpenPanelWithParameters parameters: Any,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping ([URL]?) -> Void
     ) {
-        // 安全性：仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发。
         guard let presenter = attachedViewController else {
             completionHandler(nil)
             return
         }
 
-        // runtime 读取参数（避免 KVC 触发异常）
-        let allowsMultiple = (parameters as AnyObject)
-            .perform(NSSelectorFromString("allowsMultipleSelection"))?
-            .takeUnretainedValue() as? NSNumber
-
         documentPickerCoordinator = DocumentPickerCoordinator(
             presenter: presenter,
-            allowsMultiple: allowsMultiple?.boolValue ?? false,
+            allowsMultiple: parameters.allowsMultipleSelection,
             completion: completionHandler
         )
         documentPickerCoordinator?.present()
