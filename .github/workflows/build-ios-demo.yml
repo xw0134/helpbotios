@@ -46,32 +46,28 @@ jobs:
           ls -la
 
       - name: Resolve SwiftPM dependencies
+        working-directory: ${{ env.DEMO_DIR }}
         run: |
           set -euo pipefail
-          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
-          echo "DEMO_DIR=$DEMO_DIR"
-          echo "PROJECT_PATH=$PROJECT_PATH"
-          echo "Demo dir listing:"
-          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
-          echo "Project listing:"
-          ls -la "$PROJECT_PATH" || true
-          if [[ ! -d "$PROJECT_PATH" ]]; then
-            echo "❌ Xcode project not found: $PROJECT_PATH"
+          echo "PWD=$PWD"
+          echo "Listing:"
+          ls -la
+          if [[ ! -d "$PROJECT" ]]; then
+            echo "❌ Xcode project not found: $PWD/$PROJECT"
             exit 1
           fi
           xcodebuild -resolvePackageDependencies \
-            -project "$PROJECT_PATH" \
+            -project "$PROJECT" \
             -scheme "$SCHEME"
 
       - name: Build (iOS Simulator, no codesign)
+        working-directory: ${{ env.DEMO_DIR }}
         run: |
           set -euo pipefail
-          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
-          echo "PROJECT_PATH=$PROJECT_PATH"
-          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
+          echo "PWD=$PWD"
           mkdir -p build
           xcodebuild build \
-            -project "$PROJECT_PATH" \
+            -project "$PROJECT" \
             -scheme "$SCHEME" \
             -configuration "$CONFIGURATION" \
             -destination "generic/platform=iOS Simulator" \
@@ -82,13 +78,12 @@ jobs:
             | tee build/xcodebuild-simulator.log
 
       - name: Build (iOS Device, unsigned, no codesign)
+        working-directory: ${{ env.DEMO_DIR }}
         run: |
           set -euo pipefail
-          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
-          echo "PROJECT_PATH=$PROJECT_PATH"
-          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
+          echo "PWD=$PWD"
           xcodebuild build \
-            -project "$PROJECT_PATH" \
+            -project "$PROJECT" \
             -scheme "$SCHEME" \
             -configuration "$CONFIGURATION" \
             -destination "generic/platform=iOS" \
@@ -100,9 +95,9 @@ jobs:
             | tee build/xcodebuild-iphoneos.log
 
       - name: Package .ipa (Simulator + iPhoneOS unsigned)
+        working-directory: ${{ env.DEMO_DIR }}
         run: |
           set -euo pipefail
-          cd "$DEMO_DIR"
           mkdir -p build
 
           package_ipa() {
