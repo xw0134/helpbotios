@@ -74,10 +74,21 @@ jobs:
           
           cat Package.swift
           
-          # 使用 Swift Package Manager 构建
+          # 使用 xcodebuild 构建 Swift Package (支持 iOS SDK)
           echo ""
-          echo "=== 构建 Swift Package ==="
-          swift build -c release
+          echo "=== 构建 Swift Package (iOS) ==="
+          
+          # Swift Package 需要使用 xcodebuild 来指定 iOS SDK
+          xcodebuild -scheme HelpBotSDK \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            -derivedDataPath build
+          
+          echo ""
+          echo "=== 查找编译产物 ==="
+          find build -name "*.framework" -o -name "*.a" -o -name "*.dylib"
           
           echo ""
           echo "=== 创建 Framework 结构 ==="
