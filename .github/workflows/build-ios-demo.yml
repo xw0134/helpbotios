@@ -41,22 +41,37 @@ jobs:
           sw_vers
           xcodebuild -version
           swift --version
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          echo "Repo root listing:"
+          ls -la
 
       - name: Resolve SwiftPM dependencies
         run: |
           set -euo pipefail
-          cd "$DEMO_DIR"
+          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
+          echo "DEMO_DIR=$DEMO_DIR"
+          echo "PROJECT_PATH=$PROJECT_PATH"
+          echo "Demo dir listing:"
+          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
+          echo "Project listing:"
+          ls -la "$PROJECT_PATH" || true
+          if [[ ! -d "$PROJECT_PATH" ]]; then
+            echo "❌ Xcode project not found: $PROJECT_PATH"
+            exit 1
+          fi
           xcodebuild -resolvePackageDependencies \
-            -project "$PROJECT" \
+            -project "$PROJECT_PATH" \
             -scheme "$SCHEME"
 
       - name: Build (iOS Simulator, no codesign)
         run: |
           set -euo pipefail
-          cd "$DEMO_DIR"
+          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
+          echo "PROJECT_PATH=$PROJECT_PATH"
+          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
           mkdir -p build
           xcodebuild build \
-            -project "$PROJECT" \
+            -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
             -configuration "$CONFIGURATION" \
             -destination "generic/platform=iOS Simulator" \
@@ -69,9 +84,11 @@ jobs:
       - name: Build (iOS Device, unsigned, no codesign)
         run: |
           set -euo pipefail
-          cd "$DEMO_DIR"
+          PROJECT_PATH="$GITHUB_WORKSPACE/$DEMO_DIR/$PROJECT"
+          echo "PROJECT_PATH=$PROJECT_PATH"
+          ls -la "$GITHUB_WORKSPACE/$DEMO_DIR" || true
           xcodebuild build \
-            -project "$PROJECT" \
+            -project "$PROJECT_PATH" \
             -scheme "$SCHEME" \
             -configuration "$CONFIGURATION" \
             -destination "generic/platform=iOS" \
