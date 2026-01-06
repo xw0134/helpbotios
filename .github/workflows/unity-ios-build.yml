@@ -1,0 +1,322 @@
+name: Unity iOS Build
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      build_configuration:
+        description: '编译配置'
+        required: true
+        default: 'Development'
+        type: choice
+        options:
+          - Development
+          - Release
+      
+  # 代码推送时自动触发
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'SDK/Unity/**'
+      - '.github/workflows/unity-ios-build.yml'
+  
+  # PR时触发
+  pull_request:
+    paths:
+      - 'SDK/Unity/**'
+
+jobs:
+  build-unity-ios:
+    name: 编译 Unity iOS
+    runs-on: macos-14
+    
+    env:
+      UNITY_PROJECT_PATH: SDK/Unity/HelpBotDemo
+      BUILD_NAME: HelpBotUnityDemo
+      BUILD_CONFIGURATION: ${{ github.event.inputs.build_configuration || 'Development' }}
+      XCODE_PROJECT_PATH: build/iOS
+    
+    steps:
+      # 1. 检出代码
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      # 2. 缓存 Unity Library
+      - name: 💾 缓存 Unity Library
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.UNITY_PROJECT_PATH }}/Library
+          key: Library-Unity-iOS-${{ hashFiles('SDK/Unity/**') }}
+          restore-keys: |
+            Library-Unity-iOS-
+            Library-Unity-
+      
+      # 3. 显示环境信息
+      - name: 🔍 显示环境信息
+        run: |
+          echo "=== 系统信息 ==="
+          sw_vers
+          echo ""
+          echo "=== Xcode 版本 ==="
+          xcodebuild -version
+          echo ""
+          echo "=== Swift 版本 ==="
+          swift --version
+          echo ""
+          echo "=== 磁盘空间 ==="
+          df -h
+      
+      # 4. 选择 Xcode 版本
+      - name: ⚙️ 选择 Xcode 版本
+        run: |
+          sudo xcode-select -switch /Applications/Xcode_15.2.app
+          xcodebuild -version
+      
+      # 5. 检查 Unity 项目结构
+      - name: 🔍 检查项目结构
+        run: |
+          echo "=== Unity 项目结构 ==="
+          ls -la SDK/Unity/
+          echo ""
+          echo "=== HelpBotSDK 结构 ==="
+          ls -la SDK/Unity/HelpBotSDK/
+          echo ""
+          echo "=== iOS Plugins ==="
+          ls -la SDK/Unity/HelpBotSDK/Plugins/iOS/
+          echo ""
+          echo "=== Demo 项目 ==="
+          ls -la SDK/Unity/HelpBotDemo/ || echo "Demo 目录不存在"
+      
+      # 6. 准备 iOS Framework (手动方式)
+      - name: 📦 准备 iOS Framework (手动)
+        run: |
+          echo "=== 准备 iOS Framework ==="
+          
+          # 检查是否已有 Framework
+          if [ -d "SDK/Unity/HelpBotSDK/Plugins/iOS/HelpBot.framework" ]; then
+            echo "✅ iOS Framework 已存在"
+            ls -la SDK/Unity/HelpBotSDK/Plugins/iOS/HelpBot.framework
+          else
+            echo "⚠️ iOS Framework 不存在,需要从 iOS SDK 构建"
+            
+            # 检查 iOS SDK 源码
+            if [ -d "SDK/iOS/HelpBotSDK" ]; then
+              echo "从 iOS SDK 构建 Framework..."
+              
+              cd SDK/iOS/HelpBotSDK
+              
+              # 使用 XcodeGen 生成项目
+              if [ -f "project.yml" ]; then
+                echo "安装 XcodeGen..."
+                brew install xcodegen
+                
+                echo "生成 Xcode 项目..."
+                xcodegen generate
+                
+                echo "构建 Framework..."
+                xcodebuild build \
+                  -project HelpBotSDK.xcodeproj \
+                  -scheme HelpBotSDK \
+                  -configuration Release \
+                  -sdk iphoneos \
+                  BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+                
+                # 复制 Framework 到 Unity Plugins
+                echo "复制 Framework 到 Unity Plugins..."
+                mkdir -p ../../../SDK/Unity/HelpBotSDK/Plugins/iOS/
+                cp -R build/Release-iphoneos/HelpBot.framework \
+                     ../../../SDK/Unity/HelpBotSDK/Plugins/iOS/
+                
+                cd ../../..
+                echo "✅ Framework 构建并复制完成"
+              else
+                echo "❌ 未找到 project.yml,无法构建 Framework"
+              fi
+            else
+              echo "⚠️ iOS SDK 源码不存在,跳过 Framework 构建"
+              echo "Unity 将使用 Bridge 文件直接编译"
+            fi
+          fi
+          
+          echo ""
+          echo "=== 最终 iOS Plugins 内容 ==="
+          ls -la SDK/Unity/HelpBotSDK/Plugins/iOS/
+      
+      # 7. 使用 GameCI 构建 iOS (导出 Xcode 项目)
+      - name: 🔨 Unity 导出 iOS Xcode 项目
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.UNITY_PROJECT_PATH }}
+          targetPlatform: iOS
+          buildName: ${{ env.BUILD_NAME }}
+          buildsPath: build
+          # 使用免费的 Unity Personal 版本
+          unityVersion: 2021.3.31f1
+      
+      # 8. 配置 Xcode 项目
+      - name: ⚙️ 配置 Xcode 项目
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "=== 配置 Xcode 项目 ==="
+          
+          # 检查生成的项目
+          ls -la
+          
+          if [ -f "Unity-iPhone.xcodeproj/project.pbxproj" ]; then
+            echo "✅ Xcode 项目已生成"
+            
+            # 禁用代码签名(仅用于编译验证)
+            echo "配置编译设置..."
+            
+            # 这里可以使用 PlistBuddy 或 xcconfig 文件修改项目设置
+            # 由于是编译测试,我们将在 xcodebuild 命令中指定参数
+            
+            echo "✅ 项目配置完成"
+          else
+            echo "❌ Xcode 项目未生成"
+            exit 1
+          fi
+      
+      # 9. 编译 iOS 模拟器版本
+      - name: 🔨 编译 iOS 模拟器版本
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "开始编译 iOS 模拟器版本..."
+          
+          xcodebuild build \
+            -project Unity-iPhone.xcodeproj \
+            -scheme Unity-iPhone \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+            -configuration ${{ env.BUILD_CONFIGURATION }} \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          
+          echo "✅ 模拟器版本编译完成"
+      
+      # 10. 编译 iOS 真机版本 (Archive)
+      - name: 🔨 编译 iOS 真机版本
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "开始编译 iOS 真机版本..."
+          
+          xcodebuild archive \
+            -project Unity-iPhone.xcodeproj \
+            -scheme Unity-iPhone \
+            -archivePath build/Unity-iPhone.xcarchive \
+            -configuration ${{ env.BUILD_CONFIGURATION }} \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          
+          echo "✅ Archive 完成"
+          ls -la build/
+      
+      # 11. 生成编译报告
+      - name: 📄 生成编译报告
+        if: always()
+        run: |
+          REPORT_FILE="build/build-report.txt"
+          mkdir -p build
+          
+          cat > "$REPORT_FILE" << EOF
+          === HelpBot Unity iOS 编译报告 ===
+          
+          编译时间: $(date)
+          编译配置: ${{ env.BUILD_CONFIGURATION }}
+          Git Commit: ${{ github.sha }}
+          Git Branch: ${{ github.ref_name }}
+          
+          === 环境信息 ===
+          $(sw_vers)
+          
+          $(xcodebuild -version)
+          
+          $(swift --version)
+          
+          === Unity 信息 ===
+          Unity Version: 2021.3.31f1
+          Target Platform: iOS
+          
+          === 项目信息 ===
+          Project Path: ${{ env.UNITY_PROJECT_PATH }}
+          Build Name: ${{ env.BUILD_NAME }}
+          Xcode Project: ${{ env.XCODE_PROJECT_PATH }}
+          
+          === 编译产物 ===
+          $(ls -lh build/ 2>/dev/null || echo "无编译产物")
+          $(ls -lh ${{ env.XCODE_PROJECT_PATH }}/build/ 2>/dev/null || echo "无 Xcode 编译产物")
+          
+          === iOS Plugins 信息 ===
+          $(ls -la SDK/Unity/HelpBotSDK/Plugins/iOS/ 2>/dev/null || echo "无 iOS Plugins")
+          
+          EOF
+          
+          echo "✅ 编译报告生成完成"
+          cat "$REPORT_FILE"
+      
+      # 12. 上传编译产物
+      - name: 📤 上传编译产物
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotUnityiOS-${{ env.BUILD_CONFIGURATION }}-${{ github.sha }}
+          path: |
+            ${{ env.XCODE_PROJECT_PATH }}/build/Unity-iPhone.xcarchive
+            build/build-report.txt
+          retention-days: 30
+      
+      # 13. 上传 Xcode 项目
+      - name: 📤 上传 Xcode 项目
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-iOS-XcodeProject-${{ github.sha }}
+          path: |
+            ${{ env.XCODE_PROJECT_PATH }}/**
+            !${{ env.XCODE_PROJECT_PATH }}/build
+          retention-days: 7
+      
+      # 14. 上传编译日志
+      - name: 📤 上传编译日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-iOS-Logs-${{ github.sha }}
+          path: |
+            build/**/*.log
+            ${{ env.UNITY_PROJECT_PATH }}/Library/Bee/artifacts/**/*.log
+            ${{ env.XCODE_PROJECT_PATH }}/build/**/*.log
+          retention-days: 7
+      
+      # 15. 输出总结
+      - name: 📋 编译总结
+        if: always()
+        run: |
+          if [ -d "${{ env.XCODE_PROJECT_PATH }}/build/Unity-iPhone.xcarchive" ]; then
+            echo "🎉 Unity iOS 编译成功!"
+            echo ""
+            echo "📦 编译产物:"
+            echo "  - Unity-iPhone.xcarchive"
+            echo "  - Xcode 项目文件"
+            echo ""
+            echo "📥 下载方式:"
+            echo "  访问 Actions 页面下载编译产物"
+            echo "  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "💡 注意: 此编译未签名,仅用于验证编译流程"
+            echo "   如需真机安装,请下载 Xcode 项目后在本地签名"
+          else
+            echo "❌ Unity iOS 编译失败"
+            echo "请查看上方日志了解详细错误信息"
+            exit 1
+          fi

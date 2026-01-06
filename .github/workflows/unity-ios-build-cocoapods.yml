@@ -1,0 +1,340 @@
+name: Unity iOS Build (CocoaPods)
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      build_configuration:
+        description: '编译配置'
+        required: true
+        default: 'Development'
+        type: choice
+        options:
+          - Development
+          - Release
+      use_cocoapods:
+        description: '使用 CocoaPods'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build-unity-ios-cocoapods:
+    name: 编译 Unity iOS (CocoaPods)
+    runs-on: macos-14
+    
+    env:
+      UNITY_PROJECT_PATH: SDK/Unity/HelpBotDemo
+      BUILD_NAME: HelpBotUnityDemo
+      BUILD_CONFIGURATION: ${{ github.event.inputs.build_configuration || 'Development' }}
+      XCODE_PROJECT_PATH: build/iOS
+    
+    steps:
+      # 1. 检出代码
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      # 2. 缓存 Unity Library
+      - name: 💾 缓存 Unity Library
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.UNITY_PROJECT_PATH }}/Library
+          key: Library-Unity-iOS-Pods-${{ hashFiles('SDK/Unity/**') }}
+          restore-keys: |
+            Library-Unity-iOS-Pods-
+            Library-Unity-iOS-
+            Library-Unity-
+      
+      # 3. 缓存 CocoaPods
+      - name: 💾 缓存 CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ env.XCODE_PROJECT_PATH }}/Pods
+            ~/Library/Caches/CocoaPods
+          key: Pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            Pods-
+      
+      # 4. 显示环境信息
+      - name: 🔍 显示环境信息
+        run: |
+          echo "=== 系统信息 ==="
+          sw_vers
+          echo ""
+          echo "=== Xcode 版本 ==="
+          xcodebuild -version
+          echo ""
+          echo "=== CocoaPods 版本 ==="
+          pod --version
+          echo ""
+          echo "=== Ruby 版本 ==="
+          ruby --version
+      
+      # 5. 选择 Xcode 版本
+      - name: ⚙️ 选择 Xcode 版本
+        run: |
+          sudo xcode-select -switch /Applications/Xcode_15.2.app
+          xcodebuild -version
+      
+      # 6. 使用 GameCI 构建 iOS (导出 Xcode 项目)
+      - name: 🔨 Unity 导出 iOS Xcode 项目
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.UNITY_PROJECT_PATH }}
+          targetPlatform: iOS
+          buildName: ${{ env.BUILD_NAME }}
+          buildsPath: build
+          unityVersion: 2021.3.31f1
+      
+      # 7. 创建 Podfile
+      - name: 📝 创建 Podfile
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "=== 创建 Podfile ==="
+          
+          cat > Podfile << 'EOF'
+          # Unity iOS Podfile for HelpBot SDK
+          
+          platform :ios, '12.0'
+          use_frameworks!
+          
+          # 禁用输入验证以避免警告
+          install! 'cocoapods', :warn_for_unused_master_specs_repo => false
+          
+          target 'Unity-iPhone' do
+            # HelpBot SDK 依赖
+            # 注意: 这里假设有一个 HelpBot CocoaPod
+            # 如果没有,需要使用本地 podspec 或手动添加 Framework
+            
+            # 方式1: 如果有公开的 CocoaPod
+            # pod 'HelpBot', '~> 1.0.0'
+            
+            # 方式2: 使用本地 podspec
+            # pod 'HelpBot', :path => '../../../SDK/iOS/HelpBotSDK'
+            
+            # 方式3: 使用本地 Framework
+            # 这种情况下不需要 pod,直接在后续步骤手动添加
+            
+            # 其他常用依赖
+            pod 'Alamofire', '~> 5.8'  # 网络请求 (示例)
+            
+          end
+          
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                # 设置最低部署目标
+                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+                
+                # 禁用 Bitcode
+                config.build_settings['ENABLE_BITCODE'] = 'NO'
+                
+                # 设置 Swift 版本
+                config.build_settings['SWIFT_VERSION'] = '5.0'
+                
+                # 禁用代码签名 (仅用于编译测试)
+                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+              end
+            end
+          end
+          EOF
+          
+          echo "✅ Podfile 创建完成"
+          cat Podfile
+      
+      # 8. 安装 CocoaPods 依赖
+      - name: 📦 安装 CocoaPods 依赖
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "=== 安装 CocoaPods 依赖 ==="
+          
+          # 更新 CocoaPods repo (可选)
+          # pod repo update
+          
+          # 安装依赖
+          pod install --verbose
+          
+          echo "✅ CocoaPods 依赖安装完成"
+          
+          echo ""
+          echo "=== 安装的 Pods ==="
+          ls -la Pods/
+      
+      # 9. 手动添加 HelpBot Framework (如果没有 CocoaPod)
+      - name: 📦 添加 HelpBot Framework
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "=== 添加 HelpBot Framework ==="
+          
+          # 检查是否需要手动添加 Framework
+          if [ ! -d "Pods/HelpBot" ]; then
+            echo "⚠️ HelpBot Pod 不存在,尝试手动添加 Framework"
+            
+            # 从 iOS SDK 构建或复制 Framework
+            if [ -d "../../../SDK/iOS/HelpBotSDK" ]; then
+              echo "从 iOS SDK 构建 Framework..."
+              
+              cd ../../../SDK/iOS/HelpBotSDK
+              
+              if [ -f "project.yml" ]; then
+                # 安装 XcodeGen
+                brew install xcodegen
+                
+                # 生成项目
+                xcodegen generate
+                
+                # 构建 Framework
+                xcodebuild build \
+                  -project HelpBotSDK.xcodeproj \
+                  -scheme HelpBotSDK \
+                  -configuration Release \
+                  -sdk iphoneos \
+                  BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+                
+                # 创建 Frameworks 目录
+                mkdir -p ../../../build/iOS/Frameworks
+                
+                # 复制 Framework
+                cp -R build/Release-iphoneos/HelpBot.framework \
+                     ../../../build/iOS/Frameworks/
+                
+                cd ../../../build/iOS
+                
+                echo "✅ Framework 构建并添加完成"
+              fi
+            fi
+          else
+            echo "✅ HelpBot 已通过 CocoaPods 安装"
+          fi
+          
+          echo ""
+          echo "=== Frameworks 目录 ==="
+          ls -la Frameworks/ 2>/dev/null || echo "无自定义 Frameworks"
+      
+      # 10. 编译 iOS 模拟器版本
+      - name: 🔨 编译 iOS 模拟器版本
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "开始编译 iOS 模拟器版本..."
+          
+          # 使用 workspace (CocoaPods 生成)
+          xcodebuild build \
+            -workspace Unity-iPhone.xcworkspace \
+            -scheme Unity-iPhone \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+            -configuration ${{ env.BUILD_CONFIGURATION }} \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          
+          echo "✅ 模拟器版本编译完成"
+      
+      # 11. 编译 iOS 真机版本
+      - name: 🔨 编译 iOS 真机版本
+        working-directory: ${{ env.XCODE_PROJECT_PATH }}
+        run: |
+          echo "开始编译 iOS 真机版本..."
+          
+          xcodebuild archive \
+            -workspace Unity-iPhone.xcworkspace \
+            -scheme Unity-iPhone \
+            -archivePath build/Unity-iPhone.xcarchive \
+            -configuration ${{ env.BUILD_CONFIGURATION }} \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          
+          echo "✅ Archive 完成"
+          ls -la build/
+      
+      # 12. 生成编译报告
+      - name: 📄 生成编译报告
+        if: always()
+        run: |
+          REPORT_FILE="build/build-report-cocoapods.txt"
+          mkdir -p build
+          
+          cat > "$REPORT_FILE" << EOF
+          === HelpBot Unity iOS 编译报告 (CocoaPods) ===
+          
+          编译时间: $(date)
+          编译配置: ${{ env.BUILD_CONFIGURATION }}
+          Git Commit: ${{ github.sha }}
+          Git Branch: ${{ github.ref_name }}
+          
+          === 环境信息 ===
+          $(sw_vers)
+          
+          $(xcodebuild -version)
+          
+          CocoaPods: $(pod --version)
+          
+          === Unity 信息 ===
+          Unity Version: 2021.3.31f1
+          Target Platform: iOS
+          
+          === CocoaPods 信息 ===
+          $(cat ${{ env.XCODE_PROJECT_PATH }}/Podfile.lock 2>/dev/null | head -20 || echo "无 Podfile.lock")
+          
+          === 编译产物 ===
+          $(ls -lh build/ 2>/dev/null || echo "无编译产物")
+          $(ls -lh ${{ env.XCODE_PROJECT_PATH }}/build/ 2>/dev/null || echo "无 Xcode 编译产物")
+          
+          EOF
+          
+          echo "✅ 编译报告生成完成"
+          cat "$REPORT_FILE"
+      
+      # 13. 上传编译产物
+      - name: 📤 上传编译产物
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotUnityiOS-CocoaPods-${{ env.BUILD_CONFIGURATION }}-${{ github.sha }}
+          path: |
+            ${{ env.XCODE_PROJECT_PATH }}/build/Unity-iPhone.xcarchive
+            build/build-report-cocoapods.txt
+            ${{ env.XCODE_PROJECT_PATH }}/Podfile.lock
+          retention-days: 30
+      
+      # 14. 上传编译日志
+      - name: 📤 上传编译日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-iOS-CocoaPods-Logs-${{ github.sha }}
+          path: |
+            build/**/*.log
+            ${{ env.XCODE_PROJECT_PATH }}/build/**/*.log
+            ${{ env.XCODE_PROJECT_PATH }}/Pods/**/*.log
+          retention-days: 7
+      
+      # 15. 输出总结
+      - name: 📋 编译总结
+        if: always()
+        run: |
+          if [ -d "${{ env.XCODE_PROJECT_PATH }}/build/Unity-iPhone.xcarchive" ]; then
+            echo "🎉 Unity iOS (CocoaPods) 编译成功!"
+            echo ""
+            echo "📦 编译产物:"
+            echo "  - Unity-iPhone.xcarchive"
+            echo "  - Podfile.lock"
+            echo ""
+            echo "📥 下载方式:"
+            echo "  访问 Actions 页面下载编译产物"
+            echo "  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "💡 使用了 CocoaPods 管理依赖"
+          else
+            echo "❌ Unity iOS (CocoaPods) 编译失败"
+            exit 1
+          fi

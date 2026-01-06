@@ -1,0 +1,207 @@
+name: Unity Android Build
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      build_configuration:
+        description: '编译配置'
+        required: true
+        default: 'Development'
+        type: choice
+        options:
+          - Development
+          - Release
+      
+  # 代码推送时自动触发
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'SDK/Unity/**'
+      - '.github/workflows/unity-android-build.yml'
+  
+  # PR时触发
+  pull_request:
+    paths:
+      - 'SDK/Unity/**'
+
+jobs:
+  build-unity-android:
+    name: 编译 Unity Android
+    runs-on: ubuntu-latest
+    
+    env:
+      UNITY_PROJECT_PATH: SDK/Unity/HelpBotDemo
+      BUILD_NAME: HelpBotUnityDemo
+      BUILD_CONFIGURATION: ${{ github.event.inputs.build_configuration || 'Development' }}
+    
+    steps:
+      # 1. 检出代码
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      # 2. 缓存 Unity Library
+      - name: 💾 缓存 Unity Library
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.UNITY_PROJECT_PATH }}/Library
+          key: Library-Unity-Android-${{ hashFiles('SDK/Unity/**') }}
+          restore-keys: |
+            Library-Unity-Android-
+            Library-Unity-
+      
+      # 3. 显示环境信息
+      - name: 🔍 显示环境信息
+        run: |
+          echo "=== 系统信息 ==="
+          uname -a
+          echo ""
+          echo "=== 磁盘空间 ==="
+          df -h
+          echo ""
+          echo "=== 内存信息 ==="
+          free -h
+      
+      # 4. 检查 Unity 项目结构
+      - name: 🔍 检查项目结构
+        run: |
+          echo "=== Unity 项目结构 ==="
+          ls -la SDK/Unity/
+          echo ""
+          echo "=== HelpBotSDK 结构 ==="
+          ls -la SDK/Unity/HelpBotSDK/
+          echo ""
+          echo "=== Android Plugins ==="
+          ls -la SDK/Unity/HelpBotSDK/Plugins/Android/
+          echo ""
+          echo "=== Demo 项目 ==="
+          ls -la SDK/Unity/HelpBotDemo/ || echo "Demo 目录不存在"
+      
+      # 5. 复制 Android AAR 到正确位置
+      - name: 📦 准备 Android 依赖
+        run: |
+          echo "检查 Android AAR..."
+          
+          # 检查 Unity SDK 中的 AAR
+          if [ -f "SDK/Unity/HelpBotSDK/Plugins/Android/helpbot-android-sdk.aar" ]; then
+            echo "✅ Unity SDK 中已存在 AAR"
+            ls -lh SDK/Unity/HelpBotSDK/Plugins/Android/helpbot-android-sdk.aar
+          else
+            echo "⚠️ Unity SDK 中不存在 AAR,尝试从 Android 项目复制..."
+            
+            # 查找最新的 release AAR
+            if [ -f "HelpBot/build/outputs/aar/HelpBot-release.aar" ]; then
+              echo "从 Android 项目复制 AAR..."
+              mkdir -p SDK/Unity/HelpBotSDK/Plugins/Android/
+              cp HelpBot/build/outputs/aar/HelpBot-release.aar \
+                 SDK/Unity/HelpBotSDK/Plugins/Android/helpbot-android-sdk.aar
+              echo "✅ AAR 复制完成"
+            else
+              echo "❌ 未找到 Android AAR 文件"
+              exit 1
+            fi
+          fi
+          
+          echo ""
+          echo "=== 最终 Android Plugins 内容 ==="
+          ls -lh SDK/Unity/HelpBotSDK/Plugins/Android/
+      
+      # 6. 使用 GameCI 构建 Android
+      - name: 🔨 构建 Unity Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.UNITY_PROJECT_PATH }}
+          targetPlatform: Android
+          buildName: ${{ env.BUILD_NAME }}
+          buildsPath: build
+          # 使用免费的 Unity Personal 版本
+          unityVersion: 2021.3.31f1
+          # 开发构建
+          buildMethod: UnityBuilderAction.BuildScript.Build
+      
+      # 7. 生成编译报告
+      - name: 📄 生成编译报告
+        if: always()
+        run: |
+          REPORT_FILE="build/build-report.txt"
+          mkdir -p build
+          
+          cat > "$REPORT_FILE" << EOF
+          === HelpBot Unity Android 编译报告 ===
+          
+          编译时间: $(date)
+          编译配置: ${{ env.BUILD_CONFIGURATION }}
+          Git Commit: ${{ github.sha }}
+          Git Branch: ${{ github.ref_name }}
+          
+          === 环境信息 ===
+          OS: $(uname -a)
+          
+          === Unity 信息 ===
+          Unity Version: 2021.3.31f1
+          Target Platform: Android
+          
+          === 项目信息 ===
+          Project Path: ${{ env.UNITY_PROJECT_PATH }}
+          Build Name: ${{ env.BUILD_NAME }}
+          
+          === 编译产物 ===
+          $(ls -lh build/ 2>/dev/null || echo "无编译产物")
+          
+          === Android AAR 信息 ===
+          $(ls -lh SDK/Unity/HelpBotSDK/Plugins/Android/*.aar 2>/dev/null || echo "无 AAR 文件")
+          
+          EOF
+          
+          echo "✅ 编译报告生成完成"
+          cat "$REPORT_FILE"
+      
+      # 8. 上传编译产物
+      - name: 📤 上传 APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotUnityAndroid-${{ env.BUILD_CONFIGURATION }}-${{ github.sha }}
+          path: |
+            build/**/*.apk
+            build/build-report.txt
+          retention-days: 30
+      
+      # 9. 上传编译日志
+      - name: 📤 上传编译日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-Android-Logs-${{ github.sha }}
+          path: |
+            build/**/*.log
+            ${{ env.UNITY_PROJECT_PATH }}/Library/Bee/artifacts/**/*.log
+          retention-days: 7
+      
+      # 10. 输出总结
+      - name: 📋 编译总结
+        if: always()
+        run: |
+          if [ -f "build/Android/${{ env.BUILD_NAME }}.apk" ]; then
+            echo "🎉 Unity Android 编译成功!"
+            echo ""
+            echo "📦 APK 信息:"
+            ls -lh build/Android/${{ env.BUILD_NAME }}.apk
+            echo ""
+            echo "📥 下载方式:"
+            echo "  访问 Actions 页面下载编译产物"
+            echo "  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          else
+            echo "❌ Unity Android 编译失败"
+            echo "请查看上方日志了解详细错误信息"
+            exit 1
+          fi
