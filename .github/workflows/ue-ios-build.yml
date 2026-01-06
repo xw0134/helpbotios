@@ -34,7 +34,15 @@ jobs:
       
       - name: 🔍 选择 Xcode 版本
         run: |
-          sudo xcode-select -switch /Applications/Xcode_15.2.app
+          echo "=== 可用的 Xcode 版本 ==="
+          ls /Applications/ | grep Xcode || echo "No Xcode installations found"
+          
+          echo ""
+          echo "=== 当前 Xcode 路径 ==="
+          xcode-select -p
+          
+          echo ""
+          echo "=== Xcode 版本 ==="
           xcodebuild -version
       
       - name: 📦 检查 iOS Framework
