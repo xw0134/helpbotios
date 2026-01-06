@@ -1043,7 +1043,10 @@ extension HelpBotWebViewSession: WKUIDelegate {
      - 兼容性：iOS 12+ 可编译；该回调属于 WKUIDelegate 的标准 API（Xcode 16+/WebKit overlay 会对 selector 更严格）。
      - 安全性：仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发。
      */
-    @available(iOS 10.0, *)
+    // 说明：在 Xcode 16.4 对应的 iOS 18.4 SDK 中，WKOpenPanelParameters 被标记为 iOS 18.4+。
+    // 为保证 SDK 最低 iOS 12 仍可编译/归档，这里将该回调限定为 iOS 18.4+。
+    //（低于该版本时不提供 <input type="file"> 能力，不影响核心聊天功能）
+    @available(iOS 18.4, *)
     func webView(
         _ webView: WKWebView,
         runOpenPanelWith parameters: WKOpenPanelParameters,
