@@ -1,0 +1,158 @@
+name: Unity Multi-Platform Build
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'SDK/Unity/**'
+      - '.github/workflows/unity-build.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: 'Build Android'
+        required: false
+        default: true
+        type: boolean
+      build_ios:
+        description: 'Build iOS'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  build-android:
+    name: Build Unity Android
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_android != 'false' }}
+    
+    steps:
+      - name: Checkout代码
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: SDK/Unity/Library
+          key: Library-Unity-Android-${{ hashFiles('SDK/Unity/ProjectSettings/**') }}
+          restore-keys: |
+            Library-Unity-Android-
+            Library-Unity-
+      
+      - name: 准备 Android AAR
+        run: |
+          mkdir -p SDK/Unity/Assets/Plugins/Android
+          if [ -f "HelpBot/build/outputs/aar/HelpBot-release-0.1.13.aar" ]; then
+            cp HelpBot/build/outputs/aar/HelpBot-release-0.1.13.aar SDK/Unity/Assets/Plugins/Android/
+          fi
+          ls -la SDK/Unity/Assets/Plugins/Android/
+      
+      - name: 构建 Unity Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: SDK/Unity
+          targetPlatform: Android
+          buildName: HelpBotDemo
+          buildsPath: SDK/Unity/Builds
+          unityVersion: 2022.3.62f3c1
+      
+      - name: 上传 Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-Android-APK
+          path: SDK/Unity/Builds/Android/HelpBotDemo.apk
+          if-no-files-found: error
+      
+      - name: 生成构建报告
+        if: always()
+        run: |
+          echo "## Unity Android 构建完成" >> $GITHUB_STEP_SUMMARY
+          if [ -f "SDK/Unity/Builds/Android/HelpBotDemo.apk" ]; then
+            APK_SIZE=$(du -h SDK/Unity/Builds/Android/HelpBotDemo.apk | cut -f1)
+            echo "✅ APK 大小: $APK_SIZE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ APK 构建失败" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  build-ios:
+    name: Build Unity iOS
+    runs-on: macos-latest
+    if: ${{ github.event.inputs.build_ios != 'false' }}
+    
+    steps:
+      - name: Checkout代码
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: SDK/Unity/Library
+          key: Library-Unity-iOS-${{ hashFiles('SDK/Unity/ProjectSettings/**') }}
+          restore-keys: |
+            Library-Unity-iOS-
+            Library-Unity-
+      
+      - name: 准备 iOS Framework
+        run: |
+          mkdir -p SDK/Unity/Assets/Plugins/iOS
+          # iOS Framework 会在构建时自动链接
+          ls -la SDK/Unity/Assets/Plugins/iOS/ || echo "iOS plugins directory created"
+      
+      - name: 构建 Unity iOS Xcode 项目
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: SDK/Unity
+          targetPlatform: iOS
+          buildName: HelpBotDemo
+          buildsPath: SDK/Unity/Builds
+          unityVersion: 2022.3.62f3c1
+      
+      - name: 构建 iOS App (Simulator)
+        run: |
+          cd SDK/Unity/Builds/iOS
+          xcodebuild build \
+            -project Unity-iPhone.xcodeproj \
+            -scheme Unity-iPhone \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      
+      - name: 打包 iOS App
+        run: |
+          cd SDK/Unity/Builds/iOS
+          mkdir -p Payload
+          cp -R build/Release-iphonesimulator/HelpBotDemo.app Payload/
+          zip -r HelpBotDemo-iOS-Simulator.ipa Payload
+      
+      - name: 上传 iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unity-iOS-IPA
+          path: SDK/Unity/Builds/iOS/HelpBotDemo-iOS-Simulator.ipa
+          if-no-files-found: warn
+      
+      - name: 生成构建报告
+        if: always()
+        run: |
+          echo "## Unity iOS 构建完成" >> $GITHUB_STEP_SUMMARY
+          if [ -f "SDK/Unity/Builds/iOS/HelpBotDemo-iOS-Simulator.ipa" ]; then
+            IPA_SIZE=$(du -h SDK/Unity/Builds/iOS/HelpBotDemo-iOS-Simulator.ipa | cut -f1)
+            echo "✅ IPA 大小: $IPA_SIZE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ IPA 打包可能失败" >> $GITHUB_STEP_SUMMARY
+          fi
