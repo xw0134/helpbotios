@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="helpbot_max_width">800dp</dimen>
+    <dimen name="helpbot_toolbar_height">64dp</dimen>
+    <dimen name="helpbot_webview_padding">16dp</dimen>
+</resources>

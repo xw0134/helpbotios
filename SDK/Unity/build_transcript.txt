@@ -1,0 +1,39 @@
+﻿**********************
+Windows PowerShell 脚本开始
+开始时间: 20260107172741
+用户名: DESKTOP-CCULV1R\admin
+RunAs 用户: DESKTOP-CCULV1R\admin
+配置名称: 
+计算机: DESKTOP-CCULV1R (Microsoft Windows NT 10.0.26100.0)
+主机应用程序: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File .\unity_build_minimal.ps1
+进程 ID: 32932
+PSVersion: 5.1.26100.7462
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7462
+BuildVersion: 10.0.26100.7462
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+已启动脚本，输出文件为 build_transcript.txt
+Starting Unity Build...
+
+
+    目录: D:\xinhuo\H
+    elpBotSdkDemo\Hel
+    pBotSdkDemo\SDK\U
+    nity
+
+
+Mode    LastWriteTime
+----    -------------
+d-----    2026/1/7
+                17:27
+Running Unity: D:\Program Files\Unity\2022.3.62f3c1\Editor\Unity.exe -quit -batchmode -projectPath "D:\xinhuo\HelpBotSdkDemo\HelpBotSdkDemo\SDK\Unity" -buildTarget Android -executeMethod BuildScript.BuildAndroid -logFile unity_log.txt
+Unity process finished. Checking for APK...
+APK NOT Found. Check unity_log.txt for details.
+**********************
+Windows PowerShell 脚本结束
+结束时间: 20260107172742
+**********************

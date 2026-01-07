@@ -5,7 +5,7 @@ import WebKit
 /**
  HelpBot SDK 主入口类（iOS）。
  
- 设计要点（与 Android 一致）：
+ 设计要点：
  1. 仅提供异步 API（避免宿主在主线程调用阻塞导致卡顿/死锁）。
  2. 统一错误码与回调机制。
  3. 线程安全与资源生命周期管理。
@@ -156,7 +156,7 @@ public final class HelpBot {
         }
         installState = .installing
         self.config = config
-        // 与 Android 对齐：install 时允许通过 config 预设 SSE 通知开关
+        // install 时允许通过 config 预设 SSE 通知开关
         sseNotificationEnabled = config.enableSseNotification
         operationLock.unlock()
 
@@ -665,7 +665,7 @@ public final class HelpBot {
      清理 WebView 网站数据（缓存/Cookie/LocalStorage 等）。
 
      设计目标：
-     - 与 Android Demo 的 “清理 WebView 缓存” 对齐，提供宿主可调用的诊断/复位能力
+     - 提供宿主可调用的诊断/复位能力
      - 默认仅清理 WebChat index/loader 所在域名的数据（避免误删宿主其它 WebView 数据）
      - 全程不抛异常，completion 必回调
      */
@@ -719,7 +719,7 @@ public final class HelpBot {
      获取 WebView 安全基线快照（仅用于诊断/测试台展示）。
 
      说明：
-     - iOS Demo 无法直接访问 SDK 内部的 WKWebView，因此提供该只读快照接口用于对齐 Android Demo 的 “安全基线扫描”
+     - iOS Demo 无法直接访问 SDK 内部的 WKWebView，因此提供该只读快照接口
      - 不包含敏感数据，不返回 Cookie 内容、不返回 token
      */
     public static func getWebViewSecurityBaselineSnapshot() -> [String: Any] {

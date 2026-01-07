@@ -32,7 +32,8 @@
 
 ### Demo 运行
 
-Demo 采用 XcodeGen 生成工程 (避免提交巨大的 `*.pbxproj`):
+为满足“开箱即用、无需先生成工程即可用 Xcode 打开运行”的要求，本仓库 **已提交** `HelpBotDemo.xcodeproj`。
+同时保留 `project.yml` 作为可读的工程配置源文件：当你需要修改 bundleId/团队/部署版本/文件结构时，可选择用 XcodeGen 重新生成（并提交变更）。
 
 #### 方式一: 使用自动脚本 (推荐)
 
@@ -304,7 +305,7 @@ A: 需要设置开发团队:
 
 ## 🛠️ 技术栈
 
-- **语言**: Swift 5.10+
+- **语言**: Swift 5.9+
 - **最低支持**: iOS 12.0+
 - **Demo 最低支持**: iOS 13.0+
 - **依赖管理**: Swift Package Manager

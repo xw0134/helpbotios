@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--HelpBot SDK Android Plugin Language definition-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+	<!-- 初始化: 复制 AAR 到项目 -->
+	<init>
+		<log text="[HelpBotSDK] Android Plugin Init"/>
+	</init>
+	
+	<!-- Proguard 配置 -->
+	<proguardAdditions>
+		<insert>
+-keep class com.example.HelpBot.** { *; }
+-keep interface com.example.HelpBot.** { *; }
+		</insert>
+	</proguardAdditions>
+	
+	<!-- Gradle 文件修改 -->
+	<buildGradleAdditions>
+		<insert>
+dependencies {
+	implementation(name: 'HelpBot-release-0.1.13', ext: 'aar')
+	implementation 'androidx.appcompat:appcompat:1.6.1'
+	implementation 'com.google.android.material:material:1.9.0'
+}
+
+repositories {
+	flatDir {
+		dirs 'src/main/libs'
+	}
+}
+		</insert>
+	</buildGradleAdditions>
+	
+	<!-- 复制资源 -->
+	<resourceCopies>
+		<!-- Copy AAR to libs directory -->
+		<copyFile src="$S(PluginDir)/libs/HelpBot-release-0.1.13.aar" dst="$S(BuildDir)/libs/HelpBot-release-0.1.13.aar" />
+	</resourceCopies>
+	
+	<!-- AndroidManifest 更新 -->
+	<androidManifestUpdates>
+		<addPermission android:name="android.permission.INTERNET"/>
+		<addPermission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+		<addPermission android:name="android.permission.POST_NOTIFICATIONS"/>
+	</androidManifestUpdates>
+	
+	<!-- GameActivity 导入 -->
+	<gameActivityImports>
+		<insert>
+import com.example.HelpBot.HelpBot;
+import com.example.HelpBot.core.HelpBotConfig;
+import com.example.HelpBot.core.HelpBotInitCallback;
+import com.example.HelpBot.core.HelpBotCallback;
+import com.example.HelpBot.core.HelpBotErrorCode;
+import java.util.HashMap;
+import java.util.Map;
+		</insert>
+	</gameActivityImports>
+
+	<!-- GameActivity 类主体代码 -->
+	<gameActivityClassAdditions>
+		<insert>
+	public void AndroidThunkJava_HelpBot_Install(String channelId, String domain) {
+		final String fChannelId = channelId;
+		final String fDomain = domain;
+		
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					HelpBotConfig config = new HelpBotConfig.Builder()
+						.channelId(fChannelId)
+						.domain(fDomain)
+						.fullPrivacyMode(false)
+						.enableSseNotification(true)
+						.initTimeout(30000)
+						.webViewLoadTimeout(15000)
+						.addCustomConfig("showTitleBar", true)
+						.build();
+						
+					HelpBot.install(GameActivity.this, config, new HelpBotInitCallback() {
+						@Override
+						public void onInitSuccess() {
+							// Using native callback if needed
+						}
+						
+						@Override
+						public void onInitFailure(HelpBotErrorCode code, String msg) {
+						}
+						
+						@Override
+						public void onInitStart() {}
+						
+						@Override
+						public void onInitProgress(int progress, String msg) {}
+					});
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+	
+	public void AndroidThunkJava_HelpBot_Login(String token) {
+		final String fToken = token;
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				Map&lt;String, Object&gt; config = new HashMap&lt;&gt;();
+				config.put("full_privacy_enabled", false);
+				HelpBot.login(fToken, config, null);
+			}
+		});
+	}
+	
+	public void AndroidThunkJava_HelpBot_ShowConversation() {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				HelpBot.showConversation(GameActivity.this);
+			}
+		});
+	}
+		</insert>
+	</gameActivityClassAdditions>
+</root>

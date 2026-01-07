@@ -31,19 +31,19 @@ print_header() {
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN} $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED} $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW} $1${NC}"
 }
 
 print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE} $1${NC}"
 }
 
 # ============================================
@@ -108,7 +108,7 @@ echo ""
 print_info "Swift 版本:"
 swift --version
 
-# 检查 Swift 版本 (推荐 5.10+；对齐 Xcode 26)
+# 检查 Swift 版本 (推荐 5.10+)
 SWIFT_VERSION="$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+).*/\1/p' | head -n 1 || true)"
 REQUIRED_VERSION="5.10"
 if [[ -z "$SWIFT_VERSION" ]]; then
@@ -355,13 +355,13 @@ ls -lh "$BUILD_DIR/$XCFRAMEWORK_NAME.zip"
 # ============================================
 # 9. 完成
 # ============================================
-print_header "🎉 编译完成!"
+print_header " 编译完成!"
 
 echo ""
 print_success "编译产物位置:"
-echo "  📦 XCFramework: $BUILD_DIR/$XCFRAMEWORK_NAME"
-echo "  📦 压缩包: $BUILD_DIR/$XCFRAMEWORK_NAME.zip"
-echo "  📄 编译报告: $BUILD_DIR/build-report.txt"
+echo "   XCFramework: $BUILD_DIR/$XCFRAMEWORK_NAME"
+echo "   压缩包: $BUILD_DIR/$XCFRAMEWORK_NAME.zip"
+echo "   编译报告: $BUILD_DIR/build-report.txt"
 
 echo ""
 print_info "下一步:"

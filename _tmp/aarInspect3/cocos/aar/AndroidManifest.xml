@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.HelpBot" >
+
+    <uses-sdk android:minSdkVersion="21" />
+    <!--
+      SDK 基础权限（随 AAR 合并到宿主）：
+      - INTERNET：WebView 加载 WebSDK 必需
+      - ACCESS_NETWORK_STATE：用于判断网络是否可用/受限，给出更友好的初始化失败提示
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+        <activity
+            android:name="com.example.HelpBot.activity.HelpBotActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/HelpBotTheme" >
+        </activity>
+    </application>
+
+</manifest>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="helpbot_max_width">10000dp</dimen>
+    <dimen name="helpbot_toolbar_height">56dp</dimen>
+    <dimen name="helpbot_webview_padding">0dp</dimen>
+    <style name="HelpBotTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowIsTranslucent">false</item>
+    </style>
+</resources>

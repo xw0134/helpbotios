@@ -2,7 +2,7 @@ import SwiftUI
 import HelpBotSDK
 
 /**
- iOS Demo UI：按 Android Demo（activity_main.xml）1:1 结构对齐。
+ iOS Demo UI
  */
 struct ContentView: View {
     @ObservedObject private var vm = HelpBotDemoViewModel()
@@ -135,7 +135,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - UI Helpers（对齐 Android：按钮等宽、文本输入高度 48）
+    // MARK: - UI Helpers（按钮等宽、文本输入高度 48）
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)

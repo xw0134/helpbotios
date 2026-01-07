@@ -5,7 +5,7 @@ import UIKit
  可选中文本视图（用于日志面板，iOS 13 兼容）。
 
  设计目标：
- - 对齐 Android Demo 的 TextView 日志区域：可选中复制、等宽字体、固定高度
+ - TextView 日志区域：可选中复制、等宽字体、固定高度
  - 只读，不参与键盘输入
  */
 struct SelectableTextView: UIViewRepresentable {

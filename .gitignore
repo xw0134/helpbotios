@@ -19,3 +19,18 @@ SDK/UnrealEngine/**/Binaries/
 SDK/UnrealEngine/**/Intermediate/
 SDK/UnrealEngine/**/Saved/
 SDK/UnrealEngine/**/Output/
+SDK/UnrealEngine/**/Builds/
+
+# Cocos2d 构建产物
+SDK/Cocos2d/**/proj.android/build/
+SDK/Cocos2d/**/proj.android/.gradle/
+SDK/Cocos2d/**/proj.android/app/build/
+SDK/Cocos2d/**/proj.ios_mac/build/
+SDK/Cocos2d/**/proj.ios_mac/DerivedData/
+
+# Unity 构建产物
+SDK/Unity/**/Library/
+SDK/Unity/**/Temp/
+SDK/Unity/**/obj/
+SDK/Unity/**/Build/
+SDK/Unity/**/Builds/

@@ -44,7 +44,7 @@ HelpBotDemo 是 HelpBot iOS SDK 的示例应用，目标是**对齐 Android Demo
 
 ### 前提条件
 - macOS 10.15+
-- Xcode 14.0+
+- Xcode 15.2+（推荐使用最新稳定版）
 - XcodeGen（可选，仅当你需要重新生成 `.xcodeproj` 时使用）
 
 ### 方式一：直接打开工程（推荐）

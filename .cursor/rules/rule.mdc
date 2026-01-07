@@ -8,3 +8,4 @@ alwaysApply: true
 5.websdk目录下的文件仅供参考，禁止在代码中去引用，请阅读websdk总结.md，如果不存在你必须对websdk下的所有js文件深入的阅读并生成websdk总结.md,修改与websdk相关的请阅读websdk总结.md
 6.SDK 内必须写死 WebChat 的 index/loader 链接
 7.完善ANDROID版的HelpBot,完整的参照android版的SDK,完善SDK目录下的其它平台UnrealEngine、Cocos2d、iOS、Unity
+8.禁止修改helpbot目录的代码，禁止修改sdk目录下ios目录的代码

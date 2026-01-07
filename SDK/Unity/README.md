@@ -1,338 +1,301 @@
-# HelpBot Unity SDK
+# HelpBot SDK - Unity Demo
 
-HelpBot Unity SDK 是一个跨平台的客户支持解决方案，支持 Android 和 iOS 平台。
+## 概述
 
-## 特性
+这是 HelpBot SDK 的 Unity 集成示例项目，展示如何在 Unity 游戏中集成 HelpBot 客服功能。
 
-- ✅ 完整的 API 对齐 Android/iOS 原生 SDK
-- ✅ 异步回调机制
-- ✅ 统一的错误码体系
-- ✅ 事件监听系统
-- ✅ 属性管理
-- ✅ 跨平台支持 (Android/iOS)
-- ✅ 线程安全
-- ✅ 完整的中文注释
+## 功能特性
 
-## 系统要求
+- ✅ Android AAR 集成
+- ✅ iOS Framework 集成
+- ✅ C# 跨平台封装
+- ✅ 完整的 SDK 功能演示
+- ✅ 与 Android 原生 Demo 功能一致
 
-- **Unity**: 2019.4 LTS 或更高版本
-- **Android**: API Level 21 (Android 5.0) 或更高
-- **iOS**: iOS 12.0 或更高
-- **Scripting Backend**: IL2CPP 或 Mono
+## 环境要求
+
+### Unity
+- Unity 2020.3 LTS 或更高版本
+- 支持 Android 和 iOS 构建模块
+
+### Android
+- Android SDK API 21+
+- Gradle 7.0+
+
+### iOS
+- Xcode 12.0+
+- iOS 11.0+
+
+## 项目结构
+
+```
+Unity/
+├── Assets/
+│   ├── Plugins/
+│   │   ├── Android/
+│   │   │   ├── HelpBot-release-0.1.13.aar    # Android SDK
+│   │   │   ├── AndroidManifest.xml           # Android 配置
+│   │   │   └── mainTemplate.gradle           # Gradle 配置
+│   │   └── iOS/
+│   │       ├── HelpBotSDK.framework/         # iOS SDK
+│   │       └── HelpBotBridge.mm              # iOS 桥接代码
+│   ├── Scripts/
+│   │   ├── HelpBotSDK.cs                     # SDK 主类
+│   │   ├── HelpBotConfig.cs                  # 配置类
+│   │   └── HelpBotDemoUI.cs                  # Demo UI
+│   ├── Scenes/
+│   │   └── HelpBotDemo.unity                 # Demo 场景
+│   └── Editor/
+│       └── HelpBotBuildProcessor.cs          # 构建后处理
+├── ProjectSettings/
+└── README.md
+```
 
 ## 快速开始
 
-### 1. 导入 SDK
+### 1. 准备 SDK 文件
 
-将 `HelpBotSDK` 文件夹复制到您的 Unity 项目的 `Assets` 目录下。
+#### Android AAR
+```bash
+# 编译 HelpBot AAR
+cd ../../
+./gradlew :HelpBot:assembleRelease
 
-### 2. 初始化 SDK
+# 复制到 Unity 项目
+copy HelpBot\build\outputs\aar\HelpBot-release-0.1.13.aar SDK\Unity\Assets\Plugins\Android\
+```
+
+#### iOS Framework
+从 GitHub Actions 下载或本地编译：
+```bash
+cd ../iOS
+./build_local.sh
+
+# 复制到 Unity 项目
+cp -r HelpBotSDK/build/HelpBotSDK.framework SDK/Unity/Assets/Plugins/iOS/
+```
+
+### 2. 打开 Unity 项目
+
+1. 启动 Unity Hub
+2. 添加项目: `SDK/Unity`
+3. 使用 Unity 2020.3 LTS 或更高版本打开
+
+### 3. 配置项目
+
+#### Android 配置
+1. File → Build Settings → Android
+2. Player Settings → Publishing Settings
+   - Custom Main Gradle Template: ✅
+   - Custom Gradle Properties File: ✅
+3. 确保 `Assets/Plugins/Android/AndroidManifest.xml` 存在
+
+#### iOS 配置
+1. File → Build Settings → iOS
+2. Player Settings → Other Settings
+   - Target minimum iOS Version: 11.0
+3. 构建后会自动链接 Framework (通过 HelpBotBuildProcessor)
+
+## API 使用示例
+
+### 初始化 SDK
 
 ```csharp
 using HelpBot;
 
-// 创建配置
-var config = new HelpBotConfig.Builder()
-    .SetChannelId("your_channel_id")
-    .SetDomain("https://your-domain.com")
-    .Build();
-
-// 初始化 SDK
-HelpBot.HelpBot.Install(config, new MyInitCallback());
-```
-
-### 3. 用户登录
-
-```csharp
-// 使用后端生成的 JWT Token 登录
-HelpBot.HelpBot.Login("your_jwt_token", null, new MyLoginCallback());
-```
-
-### 4. 显示对话窗口
-
-```csharp
-// 显示客服对话界面
-HelpBot.HelpBot.ShowConversation();
-```
-
-## 核心 API
-
-### Install
-
-初始化 SDK（必须在使用其他 API 之前调用）
-
-```csharp
-// 方式 1: 使用 HelpBotConfig
-var config = new HelpBotConfig.Builder()
-    .SetChannelId("channel_id")
-    .SetDomain("https://domain.com")
-    .SetFullPrivacyMode(false)
-    .Build();
-
-HelpBot.HelpBot.Install(config, callback);
-
-// 方式 2: 使用 channelId/domain/configMap
-var configMap = new Dictionary<string, object>
+public class GameManager : MonoBehaviour
 {
-    { "fullPrivacyMode", false }
-};
-
-HelpBot.HelpBot.Install("channel_id", "https://domain.com", configMap, callback);
-```
-
-### Login
-
-用户登录认证
-
-```csharp
-// 基础登录
-HelpBot.HelpBot.Login("jwt_token", null, callback);
-
-// 带配置的登录
-var loginConfig = new Dictionary<string, object>
-{
-    { "customKey", "customValue" }
-};
-
-HelpBot.HelpBot.Login("jwt_token", loginConfig, callback);
-```
-
-### ShowConversation
-
-显示客服对话界面
-
-```csharp
-HelpBot.HelpBot.ShowConversation();
-```
-
-### ShowFAQs
-
-显示 FAQ 页面
-
-```csharp
-// 基础调用
-HelpBot.HelpBot.ShowFAQs();
-
-// 带配置
-var config = new Dictionary<string, object>
-{
-    { "tn", "custom_tn" }
-};
-
-HelpBot.HelpBot.ShowFAQs(config);
-```
-
-### Logout
-
-用户登出
-
-```csharp
-HelpBot.HelpBot.Logout(callback);
-```
-
-### Destroy
-
-销毁 SDK（释放资源）
-
-```csharp
-HelpBot.HelpBot.Destroy();
-```
-
-### SetEventsListener
-
-设置事件监听器
-
-```csharp
-HelpBot.HelpBot.SetEventsListener(new MyEventsListener());
-```
-
-### UpdateMasterAttributes
-
-更新主属性
-
-```csharp
-var attributes = new Dictionary<string, object>
-{
-    { "userLevel", 10 },
-    { "vipStatus", "gold" }
-};
-
-HelpBot.HelpBot.UpdateMasterAttributes(attributes, callback);
-```
-
-### UpdateAppAttributes
-
-更新应用属性
-
-```csharp
-var attributes = new Dictionary<string, object>
-{
-    { "appVersion", "1.0.0" },
-    { "platform", "Unity" }
-};
-
-HelpBot.HelpBot.UpdateAppAttributes(attributes, callback);
-```
-
-## 回调接口
-
-### IHelpBotInitCallback
-
-初始化回调接口
-
-```csharp
-public class MyInitCallback : IHelpBotInitCallback
-{
-    public void OnInitStart()
+    void Start()
     {
-        Debug.Log("初始化开始");
-    }
-
-    public void OnInitProgress(int progress, string message)
-    {
-        Debug.Log($"初始化进度: {progress}% - {message}");
-    }
-
-    public void OnInitSuccess()
-    {
-        Debug.Log("初始化成功");
-    }
-
-    public void OnInitFailure(HelpBotErrorCode errorCode, string errorMessage)
-    {
-        Debug.LogError($"初始化失败: [{errorCode}] {errorMessage}");
+        // 创建配置
+        HelpBotConfig config = new HelpBotConfig
+        {
+            ChannelId = "your_channel_id",
+            Domain = "https://your-domain.com",
+            FullPrivacyMode = false,
+            EnableSseNotification = true
+        };
+        
+        // 初始化 SDK
+        HelpBotSDK.Instance.Install(config, (success, message) =>
+        {
+            if (success)
+            {
+                Debug.Log("HelpBot SDK 初始化成功");
+            }
+            else
+            {
+                Debug.LogError($"HelpBot SDK 初始化失败: {message}");
+            }
+        });
     }
 }
 ```
 
-### IHelpBotCallback<T>
-
-通用回调接口
+### 用户登录
 
 ```csharp
-public class MyLoginCallback : IHelpBotCallback<object>
+public void LoginToHelpBot(string jwtToken)
 {
-    public void OnSuccess(object result)
+    HelpBotSDK.Instance.Login(jwtToken, (success, message) =>
     {
-        Debug.Log("登录成功");
-    }
-
-    public void OnFailure(HelpBotErrorCode errorCode, string errorMessage)
-    {
-        Debug.LogError($"登录失败: [{errorCode}] {errorMessage}");
-    }
+        if (success)
+        {
+            Debug.Log("登录成功");
+        }
+        else
+        {
+            Debug.LogError($"登录失败: {message}");
+        }
+    });
 }
 ```
 
-### IHelpBotEventsListener
-
-事件监听器接口
+### 显示对话界面
 
 ```csharp
-public class MyEventsListener : IHelpBotEventsListener
+public void ShowCustomerService()
 {
-    public void OnEventOccurred(string eventName, string data)
+    HelpBotSDK.Instance.ShowConversation((success, message) =>
     {
-        Debug.Log($"事件: {eventName}, 数据: {data}");
-    }
-
-    public void OnUserAuthenticationFailure(HelpBotAuthenticationFailureReason reason)
-    {
-        Debug.LogError($"认证失败: {reason}");
-    }
+        if (success)
+        {
+            Debug.Log("对话界面已打开");
+        }
+        else
+        {
+            Debug.LogError($"打开对话界面失败: {message}");
+        }
+    });
 }
 ```
 
-## 错误码
+### 更新用户元数据
 
-SDK 使用统一的错误码体系，所有错误码定义在 `HelpBotErrorCode` 枚举中：
+```csharp
+public void UpdateUserInfo()
+{
+    // 更新自定义元数据
+    var customMeta = new Dictionary<string, string>
+    {
+        { "user_level", "VIP" },
+        { "server_id", "30012" },
+        { "player_id", "123456" }
+    };
+    
+    HelpBotSDK.Instance.UpdateCustomMeta(customMeta);
+    
+    // 更新 SDK 元数据
+    var sdkMeta = new Dictionary<string, string>
+    {
+        { "app_version", Application.version },
+        { "unity_version", Application.unityVersion },
+        { "device_model", SystemInfo.deviceModel }
+    };
+    
+    HelpBotSDK.Instance.UpdateSDKMeta(sdkMeta);
+}
+```
 
-- **1000-1099**: 初始化相关错误
-- **1100-1199**: WebView 相关错误
-- **1200-1299**: 网络相关错误
-- **1300-1399**: 认证相关错误
-- **1400-1499**: 存储相关错误
-- **1500-1599**: 权限相关错误
-- **9000-9999**: 其他错误
+## 构建项目
 
-详细错误码请参考 [API_REFERENCE.md](API_REFERENCE.md)
+### Android 构建
 
-## 事件类型
+#### 方法 1: Unity 编辑器
+1. File → Build Settings
+2. 选择 Android 平台
+3. 点击 "Build" 或 "Build And Run"
 
-SDK 支持多种事件类型，所有事件常量定义在 `HelpBotEvent` 类中：
+#### 方法 2: 命令行
+```bash
+# Windows
+Unity.exe -quit -batchmode -projectPath "SDK/Unity" -buildTarget Android -executeMethod BuildScript.BuildAndroid
 
-- `WIDGET_TOGGLE`: Widget 切换
-- `CONVERSATION_START`: 对话开始
-- `AGENT_MESSAGE_RECEIVED`: 收到客服消息
-- `MESSAGE_ADD`: 消息添加
-- `CSAT_SUBMIT`: CSAT 提交
-- `CONVERSATION_STATUS`: 对话状态
-- 更多事件请参考 [API_REFERENCE.md](API_REFERENCE.md)
+# macOS/Linux
+/Applications/Unity/Hub/Editor/2020.3.x/Unity.app/Contents/MacOS/Unity -quit -batchmode -projectPath "SDK/Unity" -buildTarget Android -executeMethod BuildScript.BuildAndroid
+```
 
-## 平台集成
+### iOS 构建
 
-### Android 集成
+#### 本地构建
+1. File → Build Settings
+2. 选择 iOS 平台
+3. 点击 "Build"
+4. 打开生成的 Xcode 项目
+5. 在 Xcode 中编译和运行
 
-1. 将 HelpBot Android SDK AAR 放置到 `Assets/Plugins/Android` 目录
-2. 确保 `HelpBotUnityBridge.java` 在正确的包路径下
-3. 在 `AndroidManifest.xml` 中添加必要的权限
+#### GitHub Actions 构建
+项目已配置自动构建，推送代码后自动触发：
+- Workflow: `.github/workflows/unity-ios-build.yml`
 
-详细步骤请参考 [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)
+## Demo 功能
 
-### iOS 集成
+本 Demo 实现了与 Android 原生 Demo 相同的功能：
 
-1. 将 HelpBot iOS SDK Framework 添加到 Xcode 项目
-2. 确保 `HelpBotUnityBridge.h` 和 `HelpBotUnityBridge.mm` 在正确位置
-3. 配置 Framework Search Paths
+1. **SDK 初始化** - 配置 Channel ID 和 Domain
+2. **生成 Token** - 通过服务器 API 生成 JWT Token
+3. **用户登录** - 使用 JWT Token 登录
+4. **显示对话** - 打开客服对话界面
+5. **显示 FAQ** - 显示常见问题列表
+6. **更新元数据** - 更新 SDK Meta 和 Custom Meta
+7. **事件监听** - 监听 SDK 事件回调
 
-详细步骤请参考 [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)
+## 故障排查
 
-## Demo 应用
+### Android 问题
 
-SDK 包含完整的 Demo 应用，展示所有功能的使用方法：
+**问题**: 找不到 AAR 文件
+```
+Unable to find HelpBot-release-0.1.13.aar
+```
 
-- Install 测试（多种配置）
-- Login 测试（正常流程、错误流程）
-- ShowConversation 测试
-- ShowFAQs 测试
-- Logout 测试
-- Destroy 测试
-- 事件监听测试
-- 属性更新测试
-- 压力测试
+**解决**: 
+1. 确保 AAR 文件在 `Assets/Plugins/Android/` 目录
+2. 重新导入 AAR: 右键 → Reimport
 
-Demo 代码位于 `HelpBotDemo/Assets/Scripts/HelpBotDemoController.cs`
+---
 
-## 注意事项
+**问题**: Gradle 构建失败
+```
+Execution failed for task ':launcher:processReleaseManifest'
+```
 
-1. **线程安全**: 所有 SDK API 都是线程安全的，回调会在 Unity 主线程执行
-2. **生命周期**: 确保在适当的时机调用 `Destroy()` 释放资源
-3. **Token 安全**: JWT Token 必须由后端生成，不要在客户端硬编码
-4. **错误处理**: 始终实现回调接口并处理错误情况
-5. **网络权限**: 确保应用有网络访问权限
+**解决**:
+1. 检查 `AndroidManifest.xml` 配置
+2. 确保 `mainTemplate.gradle` 正确配置
+3. 清理项目: Edit → Preferences → External Tools → Clear Cache
 
-## 常见问题
+### iOS 问题
 
-### Q: 初始化失败，提示 "SDK_NOT_INITIALIZED"
-A: 请确保先调用 `Install()` 方法完成初始化，再调用其他 API。
+**问题**: Framework not found
+```
+ld: framework not found HelpBotSDK
+```
 
-### Q: 登录失败，提示 "INVALID_TOKEN"
-A: 请检查 JWT Token 是否正确，Token 必须由后端生成。
+**解决**:
+1. 确保 Framework 在 `Assets/Plugins/iOS/` 目录
+2. 检查 `HelpBotBuildProcessor.cs` 是否正确执行
+3. 在 Xcode 中手动添加 Framework
 
-### Q: Android 平台找不到 HelpBotUnityBridge 类
-A: 请确保 `HelpBotUnityBridge.java` 的包名为 `com.example.HelpBot.unity`，并且 Android SDK AAR 已正确导入。
+---
 
-### Q: iOS 平台编译错误
-A: 请确保 HelpBot iOS Framework 已正确添加到 Xcode 项目，并配置了 Framework Search Paths。
+**问题**: P/Invoke 错误
+```
+DllNotFoundException: __Internal
+```
+
+**解决**:
+1. 确保在真机或模拟器上运行（不是编辑器）
+2. 检查 `HelpBotBridge.mm` 是否正确编译
+3. 确保 Framework 正确链接
 
 ## 技术支持
 
-如有问题，请联系技术支持或查看完整文档：
-
-- [API 参考文档](API_REFERENCE.md)
-- [集成指南](INTEGRATION_GUIDE.md)
-- [更新日志](CHANGELOG.md)
+如有问题，请参考：
+- [HelpBot SDK 需求文档](../../HelpBot_SDK_需求文档.md)
+- [Android SDK 文档](../../HelpBot/README.md)
+- [iOS SDK 文档](../iOS/README.md)
 
 ## 许可证
 
-Copyright © 2024 HelpBot. All rights reserved.
+本项目遵循与 HelpBot SDK 相同的许可证。

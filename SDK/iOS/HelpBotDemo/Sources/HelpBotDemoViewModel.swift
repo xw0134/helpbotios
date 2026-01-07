@@ -5,11 +5,11 @@ import Network
 import UserNotifications
 
 final class HelpBotDemoViewModel: NSObject, ObservableObject {
-    // ===== 配置输入（对齐 Android Demo）=====
+    // ===== 配置输入=====
     @Published var channelId: String = "appc-20251126114209416-ptvea1y414vey36"
     @Published var domain: String = "dev-bot-server.yuedongcs.com"
 
-    /// Token 生成接口（Demo 用途）
+    /// Token 生成接口
     @Published var tokenUrl: String = "https://dev-bot-server.yuedongcs.com:8123/generate_token"
     @Published var identityIdentifier: String = "uid"
     @Published var identityValue: String = "123456789"
@@ -37,7 +37,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
     @Published var networkMonitorEnabled: Bool = true
     @Published var autoRetryEnabled: Bool = false
     
-    // SSE 通知开关（对齐 Android：enableSseNotification）
+    // SSE 通知开关
     @Published var sseNotificationEnabled: Bool = true
     private var pathMonitor: NWPathMonitor?
     private let pathMonitorQueue = DispatchQueue(label: "com.helpbot.demo.netmonitor")
@@ -70,7 +70,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
     func install() {
         appendLog("========== 测试：Install(异步) ==========")
         updateStatus("状态：Install 开始...")
-        // 对齐 Android Demo：initTimeout/webViewLoadTimeout/enableSseNotification
+        // initTimeout/webViewLoadTimeout/enableSseNotification
         let configMap: [String: Any] = [
             "fullPrivacyMode": false,
             "showTitleBar": true,
@@ -239,7 +239,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - 质量保障（对齐 Android Demo）
+    // MARK: - 质量保障
 
     func runSelfCheck() {
         appendLog("========== 一键自检开始 ==========")
@@ -301,7 +301,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         appendLog("========== 负向用例完成 ==========")
     }
 
-    // MARK: - 其它 UI / 数据更新（对齐 Android Demo 的长按入口）
+    // MARK: - 其它 UI / 数据更新（长按入口）
 
     func testOtherUIAPIs() {
         appendLog("========== 测试：其他UI接口 ==========")
@@ -375,7 +375,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
             }()
             self.appendLog("Network.changed: connected=\(connected) transport=\(transport) constrained=\(path.isConstrained)")
 
-            // 自动重试 install（对齐 Android：失败且网络恢复）
+            // 自动重试 install（失败且网络恢复）
             if connected, self.autoRetryEnabled, self.lastInstallFailedDueToNetwork {
                 let now = Self.nowMs()
                 if now - self.lastInstallAttemptAtMs > 3_000 {
@@ -546,7 +546,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         logBuffer.append(line)
         logBuffer.append("\n")
         if logBuffer.count > Self.logMaxChars {
-            // 与 Android Demo 一致：保留后半段，避免 OOM
+            // 保留后半段，避免 OOM
             let keep = Self.logMaxChars / 2
             let startIndex = logBuffer.index(logBuffer.endIndex, offsetBy: -min(keep, logBuffer.count))
             logBuffer = "[trimmed] 日志过长已裁剪\n" + String(logBuffer[startIndex...])

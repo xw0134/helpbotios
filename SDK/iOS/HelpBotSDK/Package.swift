@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 5.9
 import PackageDescription
 
 let package = Package(
@@ -26,9 +26,7 @@ let package = Package(
             ]
         )
     ],
-    // 重要：Xcode 26（Swift 6 编译器）下，为避免严格并发规则将历史代码升级为 error，
-    // 这里显式锁定 Swift 5 语言模式（仅影响语言模式，不影响使用新版编译器）。
-    swiftLanguageModes: [.v5]
+    swiftLanguageVersions: [.v5]
 )
 
 

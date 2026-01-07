@@ -1,3 +1,60 @@
+name: Build iOS SDK (XCFramework)
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Build configuration"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Debug
+          - Release
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_local.sh"
+      - ".github/workflows/build-ios-sdk.yml"
+  pull_request:
+    paths:
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_local.sh"
+      - ".github/workflows/build-ios-sdk.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 🔍 显示环境信息
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: 🔨 编译并打包 XCFramework
+        working-directory: SDK/iOS/HelpBotSDK
+        run: |
+          export CONFIGURATION="${CONFIGURATION}"
+          bash ../build_local.sh
+
+      - name: ⬆️ 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotSDK-${{ env.CONFIGURATION }}-${{ github.sha }}
+          path: |
+            SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework.zip
+            SDK/iOS/HelpBotSDK/build/build-report.txt
+          if-no-files-found: error
 name: Build iOS SDK
 "on":
   workflow_dispatch:

@@ -69,6 +69,60 @@ git push -u origin main
 
 ---
 
+## 📱 方案 C：仅 Windows + iPhone 真机测试（自签安装 IPA）
+
+> 适用场景：你没有 Mac，但已经在 GitHub Actions 编译出了 Demo 的 `HelpBotDemo.ipa`，希望装到自己的 iPhone 运行验证。
+>
+> 重要说明（iOS 限制）：
+> - iOS App **必须签名**才能安装。CI 默认产出的 `.ipa` 为 **未签名（unsigned）**，需要在安装时用 Apple ID 进行“自签名”。
+> - 免费 Apple ID 自签的 App 通常 **7 天过期**，需要重新签名安装（这是 Apple 规则，不是 SDK 限制）。
+> - 免费账号通常最多同时装 **3 个自签 App**（含扩展）。
+
+### 1) 先拿到“真机版 IPA”
+
+- 在 GitHub Actions 里运行并下载 Demo 工作流产物（工作流：`build-ios-demo.yml`）
+- 优先使用：`HelpBotDemo.ipa`（它在 CI 中是从 iPhoneOS 构建产物复制出来的）
+
+### 2) 推荐工具：Sideloadly（Windows 一步自签安装）
+
+#### 前置条件
+- 一台 Windows 电脑 + 数据线
+- 一台 iPhone（建议 iOS 16+）
+- 一个 Apple ID（建议开启双重认证）
+- 安装 **iTunes** 与 **iCloud**（建议安装 Apple 官网版本，尽量避免 Microsoft Store 版本导致驱动/识别问题）
+
+#### 安装步骤（按顺序）
+1. 在 iPhone 上：连接电脑，点击“信任此电脑”，输入锁屏密码。
+2. 在 Windows 上：打开 Sideloadly，确认顶部设备下拉框能选到你的 iPhone。
+3. 把 `HelpBotDemo.ipa` 拖入 Sideloadly（或点击选择 IPA）。
+4. 输入 Apple ID：
+   - 建议使用“专用于测试的 Apple ID”，避免与主账号混用。
+   - 若你的 Apple ID 开启了双重认证，通常需要生成 **App 专用密码** 给 Sideloadly 使用（不要使用主密码）。
+5. 点击 Start 开始自签并安装，等待完成。
+6. 在 iPhone 上信任开发者证书：
+   - `设置` → `通用` → `VPN 与设备管理`（或“设备管理”）→ 选择你的 Apple ID → 点击“信任”。
+7. 若 iPhone 提示需要开发者模式：
+   - `设置` → `隐私与安全性` → `开发者模式` → 打开 → 重启后确认。
+8. 回到桌面打开 `HelpBotDemo`，按 Demo 页面流程做 install/login/showConversation 等冒烟验证。
+
+#### 常见问题排查（Sideloadly）
+- 设备列表找不到 iPhone：优先检查 iTunes 是否能识别、数据线/驱动是否正常。
+- 安装后闪退/打不开：确认已“信任开发者证书”，并开启“开发者模式”（iOS 16+）。
+- 7 天后打不开：这是证书过期，需要重新用 Sideloadly 安装一次。
+
+### 3) 备选工具：AltStore（需要常驻/定期刷新）
+
+> AltStore 的优势是可以在 7 天内通过“刷新”延长有效期（通常要求电脑同网段、AltServer 可用）。
+
+简要流程：
+1. Windows 安装 iTunes + iCloud
+2. Windows 安装 AltServer
+3. 用 AltServer 给 iPhone 安装 AltStore
+4. 在 iPhone 的 AltStore 里导入并安装 `HelpBotDemo.ipa`（会自动自签）
+5. 后续定期“Refresh”避免过期
+
+---
+
 ## 🔧 替代方案: 本地编译 (需要 macOS)
 
 如果您有 macOS 设备,可以使用本地编译脚本:
@@ -95,7 +149,7 @@ A:
 ### Q: 可以在 Windows 上直接编译吗?
 A: 不可以。iOS SDK 编译需要:
 - macOS 操作系统
-- Xcode 14+
+- Xcode 15.2+（用于解析 SwiftPM 5.9 + Swift 5.9 语言版本）
 - Swift 编译器
 
 这就是为什么我们配置了 GitHub Actions 云端编译,让您无需 macOS 也能编译 iOS SDK。
