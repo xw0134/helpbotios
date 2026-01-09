@@ -58,6 +58,9 @@ jobs:
               -scheme HelpBotDemo \
               -configuration "${CONFIGURATION}" \
               -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+              ARCHS=arm64 \
+              ONLY_ACTIVE_ARCH=YES \
+              EXCLUDED_ARCHS="x86_64" \
               CODE_SIGN_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \
               CODE_SIGNING_ALLOWED=NO \
@@ -68,6 +71,9 @@ jobs:
               -scheme HelpBotDemo \
               -configuration "${CONFIGURATION}" \
               -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+              ARCHS=arm64 \
+              ONLY_ACTIVE_ARCH=YES \
+              EXCLUDED_ARCHS="x86_64" \
               CODE_SIGN_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \
               CODE_SIGNING_ALLOWED=NO
