@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import CoreTelephony
 
 /**
  iOS 设备信息实现。
@@ -143,6 +144,45 @@ public final class IOSDevice: Device {
             return "Unknown"
         }
     }
+
+    // MARK: - Disk Space（对齐 Android：total_space / free_space）
+
+    /**
+     获取总磁盘空间（GiB，字符串，保留 2 位小数）。
+     - 安全性：仅读取文件系统属性，不涉及权限。
+     - 兼容性：iOS 12+ 可用。
+     */
+    public func getTotalDiskSpace() -> String {
+        let bytes = getFileSystemSizeBytes() ?? 0
+        return formatGiB(bytes: bytes)
+    }
+
+    /**
+     获取可用磁盘空间（GiB，字符串，保留 2 位小数）。
+     */
+    public func getFreeDiskSpace() -> String {
+        let bytes = getFileSystemFreeBytes() ?? 0
+        return formatGiB(bytes: bytes)
+    }
+
+    /**
+     获取运营商名称（尽力而为；无 SIM/权限/系统限制时返回空字符串）。
+     */
+    public func getCarrierName() -> String {
+        let info = CTTelephonyNetworkInfo()
+        if #available(iOS 12.0, *) {
+            if let providers = info.serviceSubscriberCellularProviders {
+                for (_, carrier) in providers {
+                    if let name = carrier.carrierName, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        return name
+                    }
+                }
+            }
+            return ""
+        } else {
+            return info.subscriberCellularProvider?.carrierName ?? ""
+        }
+    }
     
     /**
      获取可用内存（字节）
@@ -168,6 +208,44 @@ public final class IOSDevice: Device {
     }
     
     // MARK: - Private Helper Methods
+
+    private func getFileSystemSizeBytes() -> UInt64? {
+        do {
+            let attrs = try FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
+            if let n = attrs[.systemSize] as? NSNumber {
+                return n.uint64Value
+            }
+            if let v = attrs[.systemSize] as? UInt64 {
+                return v
+            }
+        } catch {
+            HBlogger.d(Self.tag, "获取总磁盘空间异常: \(error.localizedDescription)", nil)
+        }
+        return nil
+    }
+
+    private func getFileSystemFreeBytes() -> UInt64? {
+        do {
+            let attrs = try FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
+            if let n = attrs[.systemFreeSize] as? NSNumber {
+                return n.uint64Value
+            }
+            if let v = attrs[.systemFreeSize] as? UInt64 {
+                return v
+            }
+        } catch {
+            HBlogger.d(Self.tag, "获取可用磁盘空间异常: \(error.localizedDescription)", nil)
+        }
+        return nil
+    }
+
+    private func formatGiB(bytes: UInt64) -> String {
+        // 与 Android 对齐：1 GiB = 1024^3 bytes
+        let gib = Double(bytes) / 1_073_741_824.0
+        if gib.isNaN || gib.isInfinite || gib < 0 { return "" }
+        let rounded = (gib * 100.0).rounded() / 100.0
+        return "\(rounded) GB"
+    }
     
     private func mapToDeviceName(_ identifier: String) -> String {
         switch identifier {

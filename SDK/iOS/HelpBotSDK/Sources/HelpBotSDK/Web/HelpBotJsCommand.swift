@@ -52,11 +52,34 @@ enum HelpBotJsCommand {
     }
 
     static func buildGetStatus(callbackFnName: String?) -> String {
-        guard let callbackFnName, !callbackFnName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let callbackFnName = callbackFnName,
+              !callbackFnName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return "HelpBot('getStatus');"
         }
         let cb = callbackFnName.trimmingCharacters(in: .whitespacesAndNewlines)
         return "try{var s=HelpBot('getStatus');if(window['\(cb)']){window['\(cb)'](s);}}catch(e){}"
+    }
+
+    /**
+     获取 WebSDK 版本
+     */
+    static func buildWebSdkVersion() -> String {
+        return "HelpBot('getVersion');"
+    }
+
+    /**
+     绑定新身份到用户
+     */
+    static func buildAddUserIdentity(identifier: String, value: String) -> String {
+        // 统一使用安全的 JS 字符串字面量，避免注入与语法错误
+        return "HelpBot('bindUserInfo', \(quoteJsString(identifier)), \(quoteJsString(value)));"
+    }
+
+    /**
+     设置用户语言
+     */
+    static func buildSetUserLanguage(_ language: String) -> String {
+        return "HelpBot('setUserLanguage', \(quoteJsString(language)));"
     }
 
     /// 生成 JS 字符串字面量（带引号）

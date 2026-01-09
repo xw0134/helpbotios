@@ -78,7 +78,7 @@ enum HelpBotWebViewHelper {
 
     /// 主框架域名白名单：仅允许 index/loader 所在域名（两者可能一致或不同）
     static func isMainFrameUrlAllowed(_ url: URL?) -> Bool {
-        guard let url else { return false }
+        guard let url = url else { return false }
         let scheme = (url.scheme ?? "").lowercased()
         if scheme != "https" && scheme != "about" { return false }
         if scheme == "about" {
@@ -92,8 +92,8 @@ enum HelpBotWebViewHelper {
         let port = url.port ?? 443
         if port != 443 && port != indexPort && port != loaderPort { return false }
 
-        if let indexHost, host == indexHost { return true }
-        if let loaderHost, host == loaderHost { return true }
+        if let indexHost = indexHost, host == indexHost { return true }
+        if let loaderHost = loaderHost, host == loaderHost { return true }
 
         return false
     }
@@ -106,7 +106,7 @@ enum HelpBotWebViewHelper {
      说明：WKWebView 的资源加载；这里主要用于 iframe/子 frame 的导航兜底。
      */
     static func isSubresourceUrlAllowed(_ url: URL?) -> Bool {
-        guard let url else { return true }
+        guard let url = url else { return true }
         let scheme = (url.scheme ?? "").lowercased()
         if scheme.isEmpty { return true }
         if scheme == "about" {

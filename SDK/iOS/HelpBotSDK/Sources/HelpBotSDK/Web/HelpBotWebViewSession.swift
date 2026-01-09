@@ -104,7 +104,7 @@ final class HelpBotWebViewSession: NSObject {
         startInitTimeoutGuard(timeoutMs: effectiveTimeout)
 
         mainQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             do {
                 try self.ensureWebViewCreatedOnMainThread()
                 self.loadWebChatIndex()
@@ -120,7 +120,7 @@ final class HelpBotWebViewSession: NSObject {
 
     func attach(to viewController: UIViewController, containerView: UIView) {
         mainQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             // 若宿主未 preload（或 closeSession 后 WebView 被销毁），此处补一次初始化
             if self.webView == nil, let cfg = self.config, let proxy = self.eventProxy {
                 self.preload(config: cfg, eventProxy: proxy)
@@ -138,7 +138,7 @@ final class HelpBotWebViewSession: NSObject {
 
     func detach() {
         mainQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             self.attachedViewController = nil
             self.attachedContainerView = nil
         }
@@ -152,7 +152,7 @@ final class HelpBotWebViewSession: NSObject {
      */
     func destroy() {
         mainQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             self.destroyOnMainThread()
         }
     }
@@ -212,7 +212,7 @@ final class HelpBotWebViewSession: NSObject {
      */
     func getWebSdkBootstrapInfoBlocking(timeoutMs: Int) -> [String: Any]? {
         if Thread.isMainThread { return nil }
-        guard let webView else { return nil }
+        guard let webView = webView else { return nil }
 
         let latch = HBCountDownLatch(1)
         var result: [String: Any]?
@@ -421,7 +421,7 @@ final class HelpBotWebViewSession: NSObject {
     /// 获取 WebSDK 状态（阻塞，禁止主线程）
     func getWebSdkStatusBlocking(timeoutMs: Int) -> [String: Any]? {
         if Thread.isMainThread { return nil }
-        guard let webView else { return nil }
+        guard let webView = webView else { return nil }
 
         let latch = HBCountDownLatch(1)
         var result: [String: Any]?
@@ -462,7 +462,7 @@ final class HelpBotWebViewSession: NSObject {
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
         timer.schedule(deadline: .now() + .milliseconds(Int(timeout)))
         timer.setEventHandler { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             self.stateLock.lock()
             let shouldFail = !self.isInitialized && !self.hasInitFailed
             self.stateLock.unlock()
@@ -532,7 +532,7 @@ final class HelpBotWebViewSession: NSObject {
         currentLoginWaiter = nil
         loginWaitLock.unlock()
 
-        if let webView {
+        if let webView = webView {
             // 尽量移除 message handlers，打断潜在引用链
             let uc = webView.configuration.userContentController
             uc.removeScriptMessageHandler(forName: HelpBotWebViewHelper.nativeBridgeName)
@@ -604,7 +604,7 @@ final class HelpBotWebViewSession: NSObject {
         lastLoadErrorSnapshot = nil
         // 彻底释放旧 WebView，避免残留状态（Cookie/脚本等）
         mainQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             self.webView?.navigationDelegate = nil
             self.webView?.uiDelegate = nil
             self.webView?.removeFromSuperview()
@@ -613,7 +613,7 @@ final class HelpBotWebViewSession: NSObject {
     }
 
     private func loadWebChatIndex() {
-        guard let webView else { return }
+        guard let webView = webView else { return }
         guard let cfg = config else { return }
         guard let url = URL(string: HelpBotSDKUrls.webChatIndex) else {
             markWebSdkInitFailed("invalid_index_url")
@@ -703,7 +703,7 @@ final class HelpBotWebViewSession: NSObject {
         // 需要已初始化 + 已 attach
         guard isInitialized else { return }
         guard attachedContainerView != nil else { return }
-        guard let webView else { return }
+        guard let webView = webView else { return }
         pendingOpenConversation = false
         mainQueue.async {
             webView.evaluateJavaScript(HelpBotJsCommand.buildOpen(), completionHandler: nil)
@@ -711,7 +711,7 @@ final class HelpBotWebViewSession: NSObject {
     }
 
     private func injectConfigAndLoaderIfNeeded() {
-        guard let webView else { return }
+        guard let webView = webView else { return }
         guard let cfg = config else { return }
 
         // WebSDK 读取 window.HelpBotConfig：仅注入业务参数，不提供可被宿主篡改的入口 URL
@@ -764,7 +764,7 @@ final class HelpBotWebViewSession: NSObject {
 
         // 透传给宿主
         var data: [String: Any] = ["type": errorType, "retryCount": pageLoadRetryCount]
-        if let url { data["url"] = url }
+        if let url = url { data["url"] = url }
         eventProxy?.sendEvent("WEBVIEW_LOAD_ERROR", data)
 
         // install 阶段加速失败判定：主框架确定性 HTTP 错误无需继续重试
@@ -791,7 +791,7 @@ final class HelpBotWebViewSession: NSObject {
             }
             return
         }
-        guard let webView else { return }
+        guard let webView = webView else { return }
 
         let delayMs: Int64 = (retryCount == 1) ? 1_000 : 3_000
         mainQueue.asyncAfter(deadline: .now() + .milliseconds(Int(delayMs))) {
@@ -843,14 +843,14 @@ final class HelpBotWebViewSession: NSObject {
                 stateLock.unlock()
 
                 let health = computeHealthLevel(status)
-                if let health {
+                if let health = health {
                     stateLock.lock()
                     let changed = (lastHealthLevel == nil) || (lastHealthLevel?.lowercased() != health.lowercased())
                     if changed { lastHealthLevel = health }
                     let proxy = monitorEventProxy
                     stateLock.unlock()
 
-                    if changed, let proxy {
+                    if changed, let proxy = proxy {
                         proxy.sendEvent("WEBSDK_HEALTH_CHANGED", [
                             "level": health,
                             "authenticated": authenticated,
@@ -867,7 +867,7 @@ final class HelpBotWebViewSession: NSObject {
                 lastHealthLevel = "UNKNOWN"
                 let proxy = monitorEventProxy
                 stateLock.unlock()
-                if changed, let proxy {
+                if changed, let proxy = proxy {
                     proxy.sendEvent("WEBSDK_HEALTH_CHANGED", ["level": "UNKNOWN"])
                 }
             }
@@ -1039,17 +1039,21 @@ extension HelpBotWebViewSession: WKUIDelegate {
 
     /**
      文件选择：支持 Web 侧 `<input type="file">`（可选）。
-     
-     - 兼容性：iOS 12+ 可编译；该回调属于 WKUIDelegate 的标准 API（Xcode 16+/WebKit overlay 会对 selector 更严格）。
-     - 安全性：仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发。
+
+     兼容性/稳定性说明：
+     - 部分 Xcode/WebKit Swift overlay 版本会出现 `WKOpenPanelParameters` “找不到类型”的编译问题（即使运行时系统支持）。
+     - 为保证 SDK 在不同 Xcode/SDK 组合下都能稳定编译，这里**不直接引用** `WKOpenPanelParameters`，
+       改为实现对应的 ObjC selector，并用 `AnyObject` 接收参数。
+     - 低版本系统（iOS 14 以下）不会触发该回调；即使未触发，也不影响核心聊天功能。
+
+     安全性：
+     - 仅允许在当前展示的 VC 上弹出选择器，避免后台/无界面触发导致的 UI 异常。
      */
-    // 说明：在 Xcode 16.4 对应的 iOS 18.4 SDK 中，WKOpenPanelParameters 被标记为 iOS 18.4+。
-    // 为保证 SDK 最低 iOS 12 仍可编译/归档，这里将该回调限定为 iOS 18.4+。
-    //（低于该版本时不提供 <input type="file"> 能力，不影响核心聊天功能）
-    @available(iOS 18.4, *)
+    @available(iOS 14.0, *)
+    @objc(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)
     func webView(
         _ webView: WKWebView,
-        runOpenPanelWith parameters: WKOpenPanelParameters,
+        runOpenPanelWithParameters parameters: AnyObject,
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping ([URL]?) -> Void
     ) {
@@ -1058,9 +1062,22 @@ extension HelpBotWebViewSession: WKUIDelegate {
             return
         }
 
+        // 读取 allowsMultipleSelection（不依赖 WKOpenPanelParameters 类型；避免 KVC 触发异常）
+        var allowsMultiple = false
+        let sel = NSSelectorFromString("allowsMultipleSelection")
+        if let obj = parameters as? NSObject,
+           obj.responds(to: sel),
+           let ret = obj.perform(sel)?.takeUnretainedValue() {
+            if let b = ret as? Bool {
+                allowsMultiple = b
+            } else if let n = ret as? NSNumber {
+                allowsMultiple = n.boolValue
+            }
+        }
+
         documentPickerCoordinator = DocumentPickerCoordinator(
             presenter: presenter,
-            allowsMultiple: parameters.allowsMultipleSelection,
+            allowsMultiple: allowsMultiple,
             completion: completionHandler
         )
         documentPickerCoordinator?.present()
@@ -1081,7 +1098,7 @@ private final class DocumentPickerCoordinator: NSObject, UIDocumentPickerDelegat
     }
 
     func present() {
-        guard let presenter else {
+        guard let presenter = presenter else {
             completion(nil)
             return
         }

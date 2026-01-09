@@ -36,7 +36,7 @@ final class HelpBotNotificationHelper {
                     let identifier = "helpbot.sse.\(Int(Date().timeIntervalSince1970 * 1000))"
                     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
                     UNUserNotificationCenter.current().add(request) { error in
-                        if let error {
+                        if let error = error {
                             HBlogger.w(tag, "发送本地通知失败: \(error.localizedDescription)", error)
                         }
                     }

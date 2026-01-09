@@ -121,7 +121,7 @@ public final class HelpBot {
                 .webViewLoadTimeoutMs(webViewLoadTimeoutMs)
 
             // customConfig：保存所有原始配置，供 SDK 内部（如标题栏）读取
-            if let configMap, !configMap.isEmpty {
+            if let configMap = configMap, !configMap.isEmpty {
                 for (k, v) in configMap {
                     let key = k.trimmingCharacters(in: .whitespacesAndNewlines)
                     if key.isEmpty { continue }
@@ -474,7 +474,7 @@ public final class HelpBot {
         var comps = URLComponents(string: faqBaseUrl) ?? URLComponents()
         var items: [URLQueryItem] = []
         items.append(URLQueryItem(name: "tn", value: tnValue))
-        if let extraKey, let extraValue, !extraKey.isEmpty, !extraValue.isEmpty {
+        if let extraKey = extraKey, let extraValue = extraValue, !extraKey.isEmpty, !extraValue.isEmpty {
             items.append(URLQueryItem(name: extraKey, value: extraValue))
         }
         comps.queryItems = items
@@ -565,7 +565,8 @@ public final class HelpBot {
         let diagnosis = NetworkUtils.diagnose()
 
         var meta: [String: Any] = [:]
-        meta["os_type"] = "iOS"
+        // 对齐 Android：os_type 使用小写平台标识
+        meta["os_type"] = "ios"
         meta["os_version"] = dev.getOSVersion()
         meta["device_model"] = dev.getDeviceModel()
         meta["app_name"] = ApplicationUtils.getAppName() ?? ""
@@ -576,10 +577,14 @@ public final class HelpBot {
             meta["battery_level"] = dev.getBatteryLevel()
             meta["battery_status"] = dev.getBatteryState()
             meta["network_type"] = diagnosis.transport ?? ""
+            meta["carrier_name"] = dev.getCarrierName()
             meta["country_code"] = dev.getDeviceRegion()
             meta["language"] = dev.getDeviceLanguage()
             meta["app_identifier"] = dev.getBundleId()
             meta["device_id"] = dev.getDeviceId()
+            // 对齐 Android：磁盘空间字段
+            meta["total_space"] = dev.getTotalDiskSpace()
+            meta["free_space"] = dev.getFreeDiskSpace()
             meta["is_online"] = diagnosis.networkConnected && diagnosis.hasInternetCapability
         } else {
             meta["full_privacy_mode"] = true
@@ -948,6 +953,78 @@ public final class HelpBot {
         return .success()
     }
 
+    /**
+     获取 WEB SDK 版本
+     */
+    public static func getWEBSDKVersion() -> String {
+        operationLock.lock()
+        let installed = (installState == .installed)
+        operationLock.unlock()
+        if !installed {
+            HBlogger.w(tag, "SDK 未初始化", nil)
+            return "unknown"
+        }
+
+        guard let webView = HelpBotWebViewSession.shared.webView else {
+            return "unknown"
+        }
+
+        DispatchQueue.main.async {
+            webView.evaluateJavaScript(HelpBotJsCommand.buildWebSdkVersion(), completionHandler: nil)
+        }
+        return "v0.1.4"
+    }
+
+    /**
+     绑定新身份到用户
+     - 对齐 Android：`HelpBot.addUserIdentity(identifier, value)`
+     */
+    @discardableResult
+    public static func addUserIdentity(_ identifier: String, _ value: String) -> HelpBotResult<Void> {
+        operationLock.lock()
+        let installed = (installState == .installed)
+        operationLock.unlock()
+        if !installed {
+            return .failure(.sdkNotInitialized)
+        }
+
+        guard let webView = HelpBotWebViewSession.shared.webView else {
+            return .failure(.webViewDestroyed, "WebView 未初始化")
+        }
+
+        let id = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let val = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let js = HelpBotJsCommand.buildAddUserIdentity(identifier: id, value: val)
+        DispatchQueue.main.async {
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
+        return .success()
+    }
+
+    /**
+     设置用户语言
+     */
+    @discardableResult
+    public static func setUserLanguage(_ language: String) -> HelpBotResult<Void> {
+        operationLock.lock()
+        let installed = (installState == .installed)
+        operationLock.unlock()
+        if !installed {
+            return .failure(.sdkNotInitialized)
+        }
+
+        guard let webView = HelpBotWebViewSession.shared.webView else {
+            return .failure(.webViewDestroyed, "WebView 未初始化")
+        }
+
+        let lang = language.trimmingCharacters(in: .whitespacesAndNewlines)
+        let js = HelpBotJsCommand.buildSetUserLanguage(lang)
+        DispatchQueue.main.async {
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
+        return .success()
+    }
+
     // MARK: - Internal hooks for Bridge
 
     static func markLoginConfirmedFromWeb() {
@@ -1143,7 +1220,7 @@ public final class HelpBot {
     }
 
     private static func readBool(_ map: [String: Any]?, key: String, defaultValue: Bool) -> Bool {
-        guard let map else { return defaultValue }
+        guard let map = map else { return defaultValue }
         guard let v = map[key] else { return defaultValue }
         if let b = v as? Bool { return b }
         if let n = v as? NSNumber { return n.intValue != 0 }
@@ -1156,7 +1233,7 @@ public final class HelpBot {
     }
 
     private static func readInt(_ map: [String: Any]?, key: String, defaultValue: Int) -> Int {
-        guard let map else { return defaultValue }
+        guard let map = map else { return defaultValue }
         guard let v = map[key] else { return defaultValue }
         if let i = v as? Int { return i }
         if let n = v as? NSNumber { return n.intValue }
@@ -1196,7 +1273,7 @@ public final class HelpBot {
     ) {
         DispatchQueue.main.async {
             webView.evaluateJavaScript(js) { value, error in
-                if let error {
+                if let error = error {
                     completion?(.failure(.internalError, "\(apiName) evaluate 异常: \(error.localizedDescription)"))
                     return
                 }

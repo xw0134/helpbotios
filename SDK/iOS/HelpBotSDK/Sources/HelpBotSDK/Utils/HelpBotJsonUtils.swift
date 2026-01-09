@@ -118,7 +118,7 @@ public final class HelpBotJsonUtils {
      - Returns: 字典对象，失败返回 nil
      */
     public static func parseJsonObject(_ jsonString: String?) -> [String: Any]? {
-        guard let jsonString, !jsonString.isEmpty else { return nil }
+        guard let jsonString = jsonString, !jsonString.isEmpty else { return nil }
         guard let data = jsonString.data(using: .utf8) else { return nil }
         do {
             return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
@@ -138,7 +138,7 @@ public final class HelpBotJsonUtils {
      - Returns: 规范化后的字典，无法表达时返回 nil
      */
     public static func normalizeEventData(_ raw: Any?) -> [String: Any]? {
-        guard let raw else { return nil }
+        guard let raw = raw else { return nil }
 
         // 已经是字典：直接返回（显式复制，避免引用类型 value 在并发下被修改）
         if let dict = raw as? [String: Any] {

@@ -127,10 +127,10 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         let session = URLSession(configuration: cfg)
 
         session.dataTask(with: req) { [weak self] data, resp, err in
-            guard let self else { return }
+            guard let self = self else { return }
             defer { session.invalidateAndCancel() }
 
-            if let err {
+            if let err = err {
                 self.appendLog("GenToken: failure=\(err.localizedDescription)")
                 self.updateStatus("状态：Token 生成失败: \(err.localizedDescription)")
                 return
@@ -143,7 +143,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
                 return
             }
 
-            guard let data, !data.isEmpty else {
+            guard let data = data, !data.isEmpty else {
                 self.appendLog("GenToken: failure=empty response")
                 self.updateStatus("状态：Token 生成失败: 响应为空")
                 return
@@ -186,7 +186,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         }
         rawToken = tokenToUse
         HelpBot.login(tokenToUse) { [weak self] result in
-            guard let self else { return }
+            guard let self = self else { return }
             if result.isSuccess {
                 self.updateStatus("状态：Login 成功")
                 self.appendLog("Login.onSuccess")
@@ -228,7 +228,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
     func clearWebViewData() {
         appendLog("清理 WebView 缓存/数据...")
         HelpBot.clearWebViewData { [weak self] result in
-            guard let self else { return }
+            guard let self = self else { return }
             if result.isSuccess {
                 self.appendLog("清理 WebView 数据成功")
                 self.updateStatus("状态：已清理 WebView 缓存/数据")
@@ -365,7 +365,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         let monitor = NWPathMonitor()
         pathMonitor = monitor
         monitor.pathUpdateHandler = { [weak self] path in
-            guard let self else { return }
+            guard let self = self else { return }
             let connected = path.status == .satisfied
             let transport: String = {
                 if path.usesInterfaceType(.wifi) { return "WIFI" }
@@ -424,7 +424,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
 
     private func scheduleNextStressStep() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             if !self.stressRunning { return }
             self.stressLoopCount += 1
             if let top = UIApplication.shared.hbTopViewController() {
@@ -441,7 +441,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                guard let self else { return }
+                guard let self = self else { return }
                 if !self.stressRunning { return }
                 let hide = HelpBot.hideConversation()
                 if !hide.isSuccess {

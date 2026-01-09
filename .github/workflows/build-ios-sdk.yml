@@ -15,6 +15,7 @@ on:
     branches:
       - main
       - develop
+      - "ci/**"
     paths:
       - "SDK/iOS/HelpBotSDK/**"
       - "SDK/iOS/build_local.sh"
@@ -55,60 +56,3 @@ jobs:
             SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework.zip
             SDK/iOS/HelpBotSDK/build/build-report.txt
           if-no-files-found: error
-name: Build iOS SDK
-"on":
-  workflow_dispatch:
-    inputs:
-      configuration:
-        description: Build configuration (Release/Debug)
-        required: true
-        default: Release
-        type: choice
-        options:
-          - Release
-          - Debug
-  push:
-    paths:
-      - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
-      - ".github/workflows/build-ios-sdk.yml"
-  pull_request:
-    paths:
-      - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
-      - ".github/workflows/build-ios-sdk.yml"
-
-jobs:
-  build:
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Print toolchain versions
-        run: |
-          set -euo pipefail
-          sw_vers
-          xcodebuild -version
-          swift --version
-
-      - name: Build XCFramework (HelpBotSDK)
-        env:
-          CONFIGURATION: ${{ inputs.configuration || 'Release' }}
-        run: |
-          set -euo pipefail
-          chmod +x SDK/iOS/build_local.sh
-          cd SDK/iOS/HelpBotSDK
-          ../build_local.sh
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: HelpBotSDK-${{ inputs.configuration || 'Release' }}-${{ github.sha }}
-          if-no-files-found: error
-          path: |
-            SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework.zip
-            SDK/iOS/HelpBotSDK/build/build-report.txt
-
-

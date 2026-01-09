@@ -1,3 +1,111 @@
+name: Build iOS Demo (HelpBotDemo)
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Build configuration"
+        required: true
+        default: "Debug"
+        type: choice
+        options:
+          - Debug
+          - Release
+  push:
+    branches:
+      - main
+      - develop
+      - "ci/**"
+    paths:
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - ".github/workflows/build-ios-demo.yml"
+  pull_request:
+    paths:
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - ".github/workflows/build-ios-demo.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 🔍 显示环境信息
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: 🔧 解析 Swift Package 依赖
+        working-directory: SDK/iOS/HelpBotDemo
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies -project HelpBotDemo.xcodeproj
+
+      - name: 🔨 编译 Demo（iOS Simulator）
+        working-directory: SDK/iOS/HelpBotDemo
+        run: |
+          set -euo pipefail
+          if command -v xcpretty &> /dev/null; then
+            xcodebuild build \
+              -project HelpBotDemo.xcodeproj \
+              -scheme HelpBotDemo \
+              -configuration "${CONFIGURATION}" \
+              -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              | xcpretty
+          else
+            xcodebuild build \
+              -project HelpBotDemo.xcodeproj \
+              -scheme HelpBotDemo \
+              -configuration "${CONFIGURATION}" \
+              -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          fi
+
+      - name: 📄 生成编译报告
+        if: always()
+        working-directory: SDK/iOS/HelpBotDemo
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          REPORT_FILE="build/build-report.txt"
+          cat > "$REPORT_FILE" << EOF
+          === HelpBot iOS Demo 编译报告 ===
+
+          编译时间: $(date)
+          编译配置: ${CONFIGURATION}
+          Git Commit: ${{ github.sha }}
+          Git Branch: ${{ github.ref_name }}
+
+          === 环境信息 ===
+          $(sw_vers)
+
+          $(xcodebuild -version)
+
+          $(swift --version)
+          EOF
+          cat "$REPORT_FILE"
+
+      - name: ⬆️ 上传产物（报告）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
+          path: |
+            SDK/iOS/HelpBotDemo/build/build-report.txt
+          if-no-files-found: error
+
 name: Build iOS Demo
 
 on:

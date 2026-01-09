@@ -23,7 +23,7 @@ public enum HelpBotAuthenticationFailureReason: String, Codable {
     case unknown = "UNKNOWN"
 
     public static func from(_ raw: String?) -> HelpBotAuthenticationFailureReason {
-        guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let raw = raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .unknown
         }
         return HelpBotAuthenticationFailureReason(rawValue: raw) ?? .unknown

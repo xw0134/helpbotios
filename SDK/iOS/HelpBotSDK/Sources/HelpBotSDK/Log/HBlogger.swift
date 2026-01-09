@@ -117,7 +117,7 @@ public final class HBlogger {
         lock.unlock()
 
         // 与 Android 策略一致：未注入 logger 不输出（SDK 不接管宿主日志系统）
-        guard let logger else {
+        guard let logger = logger else {
             return
         }
 
@@ -166,7 +166,7 @@ public final class HBlogger {
      显式脱敏单个值（保留前 4 位与后 4 位）。
      */
     public static func sanitizeValue(_ value: String?) -> String {
-        guard let value, !value.isEmpty else { return "***" }
+        guard let value = value, !value.isEmpty else { return "***" }
         if value.count <= 8 { return "***" }
         let prefix = value.prefix(4)
         let suffix = value.suffix(4)
