@@ -46,7 +46,9 @@ xcodebuild archive \
   -derivedDataPath "${TMP}/DerivedData" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
-  BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+  BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+  DEFINES_MODULE=YES \
+  SWIFT_EMIT_MODULE_INTERFACE=YES
 popd
 
 echo "[HelpBotSDK] archive iOS (simulator)"
@@ -58,45 +60,84 @@ xcodebuild archive \
   -derivedDataPath "${TMP}/DerivedData" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
-  BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+  BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+  DEFINES_MODULE=YES \
+  SWIFT_EMIT_MODULE_INTERFACE=YES
 popd
 
-# 寻找 Framework 产物（Discovery-based）
-resolve_fw() {
+# 手动组装 Framework 结构
+assemble_fw_manually() {
     local archive="$1"
-    local expected="${archive}/Products/Library/Frameworks/HelpBotSDK.framework"
-    if [[ -d "${expected}" ]]; then
-        echo "${expected}"
-        return 0
+    local arch_name="$2"
+    local target_fw="${TMP}/staged/${arch_name}/HelpBotSDK.framework"
+    mkdir -p "${target_fw}/Modules"
+    mkdir -p "${target_fw}/Headers"
+
+    echo "--- Assembling ${arch_name} ---"
+    
+    # 1. 查找并复制二进制文件 (可能是 .a, .dylib 或 framework 内的)
+    local lib=""
+    lib=$(find "$archive" -type f \( -name "libHelpBotSDK.a" -o -name "HelpBotSDK.a" -o -name "HelpBotSDK" \) | grep -v "DerivedData" | head -n 1 || true)
+    if [[ -n "$lib" ]]; then
+        cp -f "$lib" "${target_fw}/HelpBotSDK"
+        echo "Found binary: $lib"
+    else
+        echo "ERROR: Binary not found"
+        return 1
     fi
-    # 尝试搜索
-    local found
-    found=$(find "${archive}" -name "HelpBotSDK.framework" -type d | head -n 1 || true)
-    if [[ -n "${found}" ]]; then
-        echo "${found}"
-        return 0
+
+    # 2. 查找并复制 Swift Modules
+    local module_dir=""
+    module_dir=$(find "$archive" -type d -name "HelpBotSDK.swiftmodule" | head -n 1 || true)
+    if [[ -n "$module_dir" ]]; then
+        cp -R "$module_dir" "${target_fw}/Modules/"
+        echo "Found Swift Modules: $module_dir"
+    else
+        echo "WARNING: Swift Modules not found"
     fi
-    return 1
+
+    # 3. 复制 Headers (如果有)
+    find "$archive" -name "*.h" -exec cp {} "${target_fw}/Headers/" \; 2>/dev/null || true
+
+    # 4. 生成简单的 Info.plist
+    cat > "${target_fw}/Info.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>HelpBotSDK</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.helpbot.HelpBotSDK</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>HelpBotSDK</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>    <string>1</string>
+</dict>
+</plist>
+EOF
+    echo "Assembled framework: ${target_fw}"
+    echo "${target_fw}"
 }
 
-DEVICE_FRAMEWORK=$(resolve_fw "${IOS_DEVICE_ARCHIVE}" || true)
-SIM_FRAMEWORK=$(resolve_fw "${IOS_SIM_ARCHIVE}" || true)
+echo "[HelpBotSDK] Attempting manual assembly..."
+DEVICE_FRAMEWORK=$(assemble_fw_manually "${IOS_DEVICE_ARCHIVE}" "ios-arm64")
+SIM_FRAMEWORK=$(assemble_fw_manually "${IOS_SIM_ARCHIVE}" "ios-arm64_x86_64-simulator")
 
-if [[ -z "${DEVICE_FRAMEWORK}" || -z "${SIM_FRAMEWORK}" ]]; then
-    echo "[HelpBotSDK] ERROR: framework not found in archives. Trying manual assembly..."
-    # 调用之前的手动组装逻辑作为兜底
-    # 这里为了简便，如果上面那个不行，我们就不在脚本里套娃了，直接增加搜寻结果
-    echo "Archives contents (Products):"
-    ls -R "${TMP}"/*/Products || true
-    exit 2
+if [[ ! -d "${DEVICE_FRAMEWORK}" || ! -d "${SIM_FRAMEWORK}" ]]; then
+    echo "[HelpBotSDK] ERROR: Manual assembly failed."
+    exit 3
 fi
 
 rm -rf "${OUT_XCFRAMEWORK}"
 echo "[HelpBotSDK] create-xcframework"
-echo "DEVICE_FRAMEWORK: ${DEVICE_FRAMEWORK}"
-echo "SIM_FRAMEWORK: ${SIM_FRAMEWORK}"
-echo "OUT_XCFRAMEWORK: ${OUT_XCFRAMEWORK}"
-
 xcodebuild -create-xcframework \
   -framework "${DEVICE_FRAMEWORK}" \
   -framework "${SIM_FRAMEWORK}" \
