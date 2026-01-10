@@ -9,7 +9,7 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-OUT_XCFRAMEWORK="$1"
+OUT_XCFRAMEWORK="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 PKG_DIR="${ROOT_DIR}/SDK/iOS/HelpBotSDK"
 CONFIGURATION="${CONFIGURATION:-Release}"
@@ -20,6 +20,8 @@ mkdir -p "${TMP}"
 
 IOS_DEVICE_ARCHIVE="${TMP}/HelpBotSDK-iOS.xcarchive"
 IOS_SIM_ARCHIVE="${TMP}/HelpBotSDK-iOS-sim.xcarchive"
+
+set -x
 
 echo "[HelpBotSDK] archive iOS (device)"
 xcodebuild archive \
@@ -69,6 +71,10 @@ fi
 
 rm -rf "${OUT_XCFRAMEWORK}"
 echo "[HelpBotSDK] create-xcframework"
+echo "DEVICE_FRAMEWORK: ${DEVICE_FRAMEWORK}"
+echo "SIM_FRAMEWORK: ${SIM_FRAMEWORK}"
+echo "OUT_XCFRAMEWORK: ${OUT_XCFRAMEWORK}"
+
 xcodebuild -create-xcframework \
   -framework "${DEVICE_FRAMEWORK}" \
   -framework "${SIM_FRAMEWORK}" \
