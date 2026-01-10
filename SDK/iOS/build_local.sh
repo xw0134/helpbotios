@@ -63,6 +63,9 @@ run_xcodebuild_archive() {
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             ONLY_ACTIVE_ARCH=NO \
+            DEFINES_MODULE=YES \
+            SWIFT_EMIT_MODULE_INTERFACE=YES \
+            GENERATE_INFOPLIST_FILE=YES \
             | xcpretty
     else
         xcodebuild archive \
@@ -72,7 +75,10 @@ run_xcodebuild_archive() {
             -configuration "$configuration" \
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO \
+            DEFINES_MODULE=YES \
+            SWIFT_EMIT_MODULE_INTERFACE=YES \
+            GENERATE_INFOPLIST_FILE=YES
     fi
 }
 
@@ -177,15 +183,18 @@ resolve_framework() {
     local archive="$1"
     local expected="${archive}/Products/Library/Frameworks/${SCHEME}.framework"
     if [[ -d "$expected" && -f "${expected}/Info.plist" ]]; then
+        print_info "找到 Framework (标准路径): $expected"
         echo "$expected"
         return 0
     fi
     local found
-    found="$(find "$archive" -maxdepth 8 -type d -name "${SCHEME}.framework" 2>/dev/null | head -n 1 || true)"
+    found="$(find "$archive" -maxdepth 10 -type d -name "${SCHEME}.framework" 2>/dev/null | head -n 1 || true)"
     if [[ -n "${found}" && -f "${found}/Info.plist" ]]; then
+        print_info "找到 Framework (搜索路径): $found"
         echo "$found"
         return 0
     fi
+    print_error "未找到 ${SCHEME}.framework 在 archive: $archive"
     return 1
 }
 
@@ -233,27 +242,35 @@ if FW_DEVICE="$(resolve_framework "$DEVICE_ARCHIVE")" && FW_SIM="$(resolve_frame
     print_success "检测到 Framework 产物:"
     print_info "device: $FW_DEVICE"
     print_info "sim:    $FW_SIM"
+    
+    # 验证 Framework 包含 Modules 目录
+    if [[ ! -d "${FW_DEVICE}/Modules" ]]; then
+        print_error "iOS 真机 Framework 缺少 Modules 目录: ${FW_DEVICE}"
+        print_info "尝试查找 Modules 目录..."
+        find "$DEVICE_ARCHIVE" -name "Modules" -type d 2>/dev/null || true
+        exit 1
+    fi
+    if [[ ! -d "${FW_SIM}/Modules" ]]; then
+        print_error "iOS 模拟器 Framework 缺少 Modules 目录: ${FW_SIM}"
+        print_info "尝试查找 Modules 目录..."
+        find "$SIM_ARCHIVE" -name "Modules" -type d 2>/dev/null || true
+        exit 1
+    fi
+    
+    print_success "Framework Modules 目录验证通过"
+    
     xcodebuild -create-xcframework \
         -framework "$FW_DEVICE" \
         -framework "$FW_SIM" \
         -output "$OUTPUT_PATH"
 else
-    print_warning "未检测到有效 Framework，回退使用 -library 方式创建 XCFramework..."
-    STAGING_DIR="${BUILD_DIR}/_xcframework_staging"
-    rm -rf "$STAGING_DIR"
-    mkdir -p "$STAGING_DIR"
-
-    LIB_DEVICE="$(resolve_library_with_modules "$DEVICE_ARCHIVE" "${STAGING_DIR}/device")"
-    LIB_SIM="$(resolve_library_with_modules "$SIM_ARCHIVE" "${STAGING_DIR}/simulator")"
-    print_info "device lib: $LIB_DEVICE"
-    print_info "sim lib:    $LIB_SIM"
-
-    HDR_DIR="${STAGING_DIR}/headers"
-    mkdir -p "$HDR_DIR"
-    xcodebuild -create-xcframework \
-        -library "$LIB_DEVICE" -headers "$HDR_DIR" \
-        -library "$LIB_SIM" -headers "$HDR_DIR" \
-        -output "$OUTPUT_PATH"
+    print_error "无法找到有效的 Framework 产物"
+    print_error "这通常意味着 Swift Package 配置有问题或编译失败"
+    print_info "请检查:"
+    print_info "  1. Package.swift 配置是否正确"
+    print_info "  2. 编译日志中是否有错误"
+    print_info "  3. Xcode 版本是否满足要求 (15.2+)"
+    exit 1
 fi
 
 print_success "XCFramework 创建完成"
@@ -294,6 +311,61 @@ print_info "iOS 模拟器架构:"
 SIM_BIN="$(resolve_bin "$XCROOT/ios-arm64_x86_64-simulator")"
 print_info "bin: $SIM_BIN"
 lipo -info "$SIM_BIN" || true
+
+echo ""
+print_header "验证 Modules 和 Headers"
+
+# 验证 iOS 真机 Modules
+DEVICE_MODULES="$XCROOT/ios-arm64/${SCHEME}.framework/Modules"
+if [[ -d "$DEVICE_MODULES" ]]; then
+    print_success "iOS 真机 Modules 目录存在"
+    print_info "内容:"
+    ls -la "$DEVICE_MODULES" || true
+    
+    # 检查 swiftmodule
+    DEVICE_SWIFTMODULE="$DEVICE_MODULES/${SCHEME}.swiftmodule"
+    if [[ -d "$DEVICE_SWIFTMODULE" ]]; then
+        print_success "iOS 真机 swiftmodule 存在"
+        print_info "swiftmodule 内容:"
+        ls -la "$DEVICE_SWIFTMODULE" || true
+    else
+        print_warning "iOS 真机 swiftmodule 不存在,但可能不影响使用"
+    fi
+else
+    print_error "iOS 真机 Modules 目录不存在: $DEVICE_MODULES"
+    exit 1
+fi
+
+# 验证 iOS 模拟器 Modules
+SIM_MODULES="$XCROOT/ios-arm64_x86_64-simulator/${SCHEME}.framework/Modules"
+if [[ -d "$SIM_MODULES" ]]; then
+    print_success "iOS 模拟器 Modules 目录存在"
+    print_info "内容:"
+    ls -la "$SIM_MODULES" || true
+    
+    # 检查 swiftmodule
+    SIM_SWIFTMODULE="$SIM_MODULES/${SCHEME}.swiftmodule"
+    if [[ -d "$SIM_SWIFTMODULE" ]]; then
+        print_success "iOS 模拟器 swiftmodule 存在"
+        print_info "swiftmodule 内容:"
+        ls -la "$SIM_SWIFTMODULE" || true
+    else
+        print_warning "iOS 模拟器 swiftmodule 不存在,但可能不影响使用"
+    fi
+else
+    print_error "iOS 模拟器 Modules 目录不存在: $SIM_MODULES"
+    exit 1
+fi
+
+# 验证 Headers (可选,Swift framework 可能没有 Headers)
+DEVICE_HEADERS="$XCROOT/ios-arm64/${SCHEME}.framework/Headers"
+if [[ -d "$DEVICE_HEADERS" ]]; then
+    print_success "iOS 真机 Headers 目录存在"
+    HEADER_COUNT=$(find "$DEVICE_HEADERS" -name "*.h" 2>/dev/null | wc -l || echo "0")
+    print_info "Headers 数量: $HEADER_COUNT"
+else
+    print_info "iOS 真机 Headers 目录不存在 (纯 Swift framework 正常)"
+fi
 
 print_success "XCFramework 验证通过"
 
