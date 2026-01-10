@@ -73,33 +73,45 @@ assemble_fw_manually() {
     mkdir -p "${target_fw}/Modules"
     mkdir -p "${target_fw}/Headers"
 
-    echo "--- Assembling ${arch_name} ---"
+    echo "--- Assembling ${arch_name} ---" >&2
     
-    # 1. 查找并复制二进制文件 (可能是 .a, .dylib 或 framework 内的)
+    # 1. 查找并复制二进制文件
     local lib=""
-    lib=$(find "$archive" -type f \( -name "libHelpBotSDK.a" -o -name "HelpBotSDK.a" -o -name "HelpBotSDK" \) | grep -v "DerivedData" | head -n 1 || true)
-    if [[ -n "$lib" ]]; then
+    # 优先找 framework 路径下的二进制，排除 DerivedData
+    lib=$(find "$archive" -path "*/HelpBotSDK.framework/HelpBotSDK" -type f | grep -v "DerivedData" | head -n 1 || true)
+    if [[ -z "$lib" ]]; then
+        lib=$(find "$archive" -type f \( -name "libHelpBotSDK.a" -o -name "HelpBotSDK.a" -o -name "HelpBotSDK" \) | grep -v "DerivedData" | head -n 1 || true)
+    fi
+
+    if [[ -n "$lib" && -f "$lib" ]]; then
         cp -f "$lib" "${target_fw}/HelpBotSDK"
-        echo "Found binary: $lib"
+        echo "Found binary: $lib" >&2
     else
-        echo "ERROR: Binary not found"
+        echo "ERROR: Binary not found in $archive" >&2
         return 1
     fi
 
     # 2. 查找并复制 Swift Modules
     local module_dir=""
-    module_dir=$(find "$archive" -type d -name "HelpBotSDK.swiftmodule" | head -n 1 || true)
-    if [[ -n "$module_dir" ]]; then
+    module_dir=$(find "$archive" -type d -name "HelpBotSDK.swiftmodule" | grep -v "DerivedData" | head -n 1 || true)
+    if [[ -n "$module_dir" && -d "$module_dir" ]]; then
         cp -R "$module_dir" "${target_fw}/Modules/"
-        echo "Found Swift Modules: $module_dir"
+        echo "Found Swift Modules: $module_dir" >&2
     else
-        echo "WARNING: Swift Modules not found"
+        echo "WARNING: Swift Modules not found in $archive" >&2
+        # 尝试查找 .swiftinterface 作为备选
+        local interface
+        interface=$(find "$archive" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
+        if [[ -n "$interface" ]]; then
+            cp "$interface" "${target_fw}/Modules/"
+            echo "Found Swift Interface: $interface" >&2
+        fi
     fi
 
-    # 3. 复制 Headers (如果有)
-    find "$archive" -name "*.h" -exec cp {} "${target_fw}/Headers/" \; 2>/dev/null || true
+    # 3. 复制 Headers
+    find "$archive" -name "*.h" -not -path "*/DerivedData/*" -exec cp {} "${target_fw}/Headers/" \; 2>/dev/null || true
 
-    # 4. 生成简单的 Info.plist
+    # 4. 生成 Info.plist
     cat > "${target_fw}/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -119,28 +131,31 @@ assemble_fw_manually() {
     <string>FMWK</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
-    <key>CFBundleVersion</key>    <string>1</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
 </dict>
 </plist>
 EOF
-    echo "Assembled framework: ${target_fw}"
     echo "${target_fw}"
 }
 
 echo "[HelpBotSDK] Attempting manual assembly..."
-DEVICE_FRAMEWORK=$(assemble_fw_manually "${IOS_DEVICE_ARCHIVE}" "ios-arm64")
-SIM_FRAMEWORK=$(assemble_fw_manually "${IOS_SIM_ARCHIVE}" "ios-arm64_x86_64-simulator")
+STAGED_DEVICE_FW=$(assemble_fw_manually "${IOS_DEVICE_ARCHIVE}" "ios-arm64") || { echo "Device assembly failed"; exit 3; }
+STAGED_SIM_FW=$(assemble_fw_manually "${IOS_SIM_ARCHIVE}" "ios-arm64_x86_64-simulator") || { echo "Sim assembly failed"; exit 3; }
 
-if [[ ! -d "${DEVICE_FRAMEWORK}" || ! -d "${SIM_FRAMEWORK}" ]]; then
-    echo "[HelpBotSDK] ERROR: Manual assembly failed."
+echo "DEVICE_FW: ${STAGED_DEVICE_FW}"
+echo "SIM_FW: ${STAGED_SIM_FW}"
+
+if [[ ! -d "${STAGED_DEVICE_FW}" || ! -d "${STAGED_SIM_FW}" ]]; then
+    echo "[HelpBotSDK] ERROR: Manual assembly failed - paths do not exist."
     exit 3
 fi
 
 rm -rf "${OUT_XCFRAMEWORK}"
 echo "[HelpBotSDK] create-xcframework"
 xcodebuild -create-xcframework \
-  -framework "${DEVICE_FRAMEWORK}" \
-  -framework "${SIM_FRAMEWORK}" \
+  -framework "${STAGED_DEVICE_FW}" \
+  -framework "${STAGED_SIM_FW}" \
   -output "${OUT_XCFRAMEWORK}"
 
 echo "[HelpBotSDK] output=${OUT_XCFRAMEWORK}"
