@@ -10,7 +10,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 OUT_XCFRAMEWORK="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 PKG_DIR="${ROOT_DIR}/SDK/iOS/HelpBotSDK"
 CONFIGURATION="${CONFIGURATION:-Release}"
 
@@ -37,27 +37,29 @@ xcodebuild archive \
   -quiet || true
 
 # Swift Package 默认没有 workspace，这里用 xcodebuild -scheme -package-path 方式构建 framework 更稳
-echo "[HelpBotSDK] archive iOS (device) via package-path"
+echo "[HelpBotSDK] archive iOS (device) via pushd"
+pushd "${PKG_DIR}"
 xcodebuild archive \
   -scheme HelpBotSDK \
   -destination "generic/platform=iOS" \
   -archivePath "${IOS_DEVICE_ARCHIVE}" \
   -derivedDataPath "${TMP}/DerivedData" \
-  -packagePath "${PKG_DIR}" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+popd
 
 echo "[HelpBotSDK] archive iOS (simulator)"
+pushd "${PKG_DIR}"
 xcodebuild archive \
   -scheme HelpBotSDK \
   -destination "generic/platform=iOS Simulator" \
   -archivePath "${IOS_SIM_ARCHIVE}" \
   -derivedDataPath "${TMP}/DerivedData" \
-  -packagePath "${PKG_DIR}" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+popd
 
 DEVICE_FRAMEWORK="${IOS_DEVICE_ARCHIVE}/Products/Library/Frameworks/HelpBotSDK.framework"
 SIM_FRAMEWORK="${IOS_SIM_ARCHIVE}/Products/Library/Frameworks/HelpBotSDK.framework"
