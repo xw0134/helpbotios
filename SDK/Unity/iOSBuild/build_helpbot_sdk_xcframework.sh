@@ -33,6 +33,10 @@ xcodebuild archive \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+  DEFINES_MODULE=YES \
+  SWIFT_EMIT_MODULE_INTERFACE=YES \
+  SWIFT_INSTALL_OBJC_HEADER=YES \
+  SWIFT_OBJC_INTERFACE_HEADER_NAME="HelpBotSDK-Swift.h" \
   OTHER_SWIFT_FLAGS="-no-verify-emitted-module-interface" \
   -quiet || true
 
@@ -48,7 +52,9 @@ xcodebuild archive \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
   DEFINES_MODULE=YES \
-  SWIFT_EMIT_MODULE_INTERFACE=YES
+  SWIFT_EMIT_MODULE_INTERFACE=YES \
+  SWIFT_INSTALL_OBJC_HEADER=YES \
+  SWIFT_OBJC_INTERFACE_HEADER_NAME="HelpBotSDK-Swift.h"
 popd
 
 echo "[HelpBotSDK] archive iOS (simulator)"
@@ -62,7 +68,9 @@ xcodebuild archive \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
   DEFINES_MODULE=YES \
-  SWIFT_EMIT_MODULE_INTERFACE=YES
+  SWIFT_EMIT_MODULE_INTERFACE=YES \
+  SWIFT_INSTALL_OBJC_HEADER=YES \
+  SWIFT_OBJC_INTERFACE_HEADER_NAME="HelpBotSDK-Swift.h"
 popd
 
 echo "[HelpBotSDK] Archive listing for debug:" >&2
@@ -96,26 +104,35 @@ assemble_fw_manually() {
 
     # 2. 查找并复制 Swift Modules
     local module_dir=""
-    local arch_filter="iphoneos"
+    local target_file="arm64-apple-ios.swiftinterface"
     if [[ "$arch_name" == *"simulator"* ]]; then
-        arch_filter="iphonesimulator"
+        target_file="arm64-apple-ios-simulator.swiftinterface"
     fi
 
-    echo "Searching modules for ${arch_name} with filter ${arch_filter}..." >&2
-    # 优先在 archive 内部找，然后再去 DerivedData 找，且路径必须包含对应的架构标识
-    module_dir=$(find "${archive}" "${TMP}/DerivedData" -path "*${arch_filter}*" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" | head -n 1 || true)
+    echo "Searching modules for ${arch_name} (looking for ${target_file})..." >&2
+    
+    # 获取所有候选目录
+    local candidates
+    candidates=$(find "${archive}" "${TMP}/DerivedData" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" || true)
+    
+    for cand in $candidates; do
+        if [[ -f "${cand}/${target_file}" ]]; then
+            module_dir="$cand"
+            break
+        fi
+    done
     
     if [[ -n "$module_dir" && -d "$module_dir" ]]; then
         cp -R "$module_dir" "${target_fw}/Modules/"
         echo "Found Swift Modules: $module_dir" >&2
     else
-        echo "WARNING: Swift Modules not found for ${arch_name} in archive or DerivedData" >&2
-        # 尝试找 .swiftinterface
+        echo "WARNING: Swift Modules not found for ${arch_name} ($target_file) in archive or DerivedData" >&2
+        # 尝试查找 .swiftinterface 文件本身
         local interface
-        interface=$(find "${archive}" "${TMP}/DerivedData" -path "*${arch_filter}*" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
+        interface=$(find "${archive}" "${TMP}/DerivedData" -name "$target_file" | head -n 1 || true)
         if [[ -n "$interface" ]]; then
             cp "$interface" "${target_fw}/Modules/"
-            echo "Found Swift Interface: $interface" >&2
+            echo "Found Swift Interface file: $interface" >&2
         fi
     fi
 
@@ -150,6 +167,35 @@ EOF
     echo "${target_fw}"
 }
 
+validate_framework_structure() {
+    local fw_dir="$1"
+    local label="$2"
+
+    local modules_dir="${fw_dir}/Modules"
+    local swiftmodule_dir="${modules_dir}/HelpBotSDK.swiftmodule"
+    local headers_dir="${fw_dir}/Headers"
+
+    if [[ ! -d "${modules_dir}" ]]; then
+        echo "[HelpBotSDK] ERROR: missing Modules (${label}): ${modules_dir}" >&2
+        return 1
+    fi
+    if [[ ! -d "${swiftmodule_dir}" ]]; then
+        echo "[HelpBotSDK] ERROR: missing swiftmodule (${label}): ${swiftmodule_dir}" >&2
+        return 1
+    fi
+    if [[ ! -d "${headers_dir}" ]]; then
+        echo "[HelpBotSDK] ERROR: missing Headers (${label}): ${headers_dir}" >&2
+        return 1
+    fi
+    if ! find "${headers_dir}" -maxdepth 1 -type f -name "*.h" | grep -q .; then
+        echo "[HelpBotSDK] ERROR: Headers is empty (${label}): ${headers_dir}" >&2
+        return 1
+    fi
+
+    echo "[HelpBotSDK] OK: ${label} framework structure valid" >&2
+    return 0
+}
+
 echo "[HelpBotSDK] Attempting manual assembly..."
 STAGED_DEVICE_FW=$(assemble_fw_manually "${IOS_DEVICE_ARCHIVE}" "ios-arm64") || { echo "Device assembly failed"; exit 3; }
 STAGED_SIM_FW=$(assemble_fw_manually "${IOS_SIM_ARCHIVE}" "ios-arm64_x86_64-simulator") || { echo "Sim assembly failed"; exit 3; }
@@ -161,6 +207,9 @@ if [[ ! -d "${STAGED_DEVICE_FW}" || ! -d "${STAGED_SIM_FW}" ]]; then
     echo "[HelpBotSDK] ERROR: Manual assembly failed - paths do not exist."
     exit 3
 fi
+
+validate_framework_structure "${STAGED_DEVICE_FW}" "ios-device" || exit 3
+validate_framework_structure "${STAGED_SIM_FW}" "ios-simulator" || exit 3
 
 rm -rf "${OUT_XCFRAMEWORK}"
 echo "[HelpBotSDK] create-xcframework"
