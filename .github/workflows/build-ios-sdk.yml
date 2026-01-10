@@ -48,6 +48,21 @@ jobs:
           export CONFIGURATION="${CONFIGURATION}"
           bash ../build_local.sh
 
+      - name: 🔍 验证 XCFramework 结构 (CI 层级)
+        working-directory: SDK/iOS/HelpBotSDK
+        run: |
+          echo "=== 检查真机架构 Modules ==="
+          ls -R build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules
+          
+          echo "=== 检查模拟器架构 Modules ==="
+          ls -R build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules
+          
+          if [ ! -d "build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule" ]; then
+            echo "❌ 错误: 找不到 swiftmodule 文件!"
+            exit 1
+          fi
+          echo "✅ 结构校验通过"
+
       - name: ⬆️ 上传产物
         uses: actions/upload-artifact@v4
         with:
