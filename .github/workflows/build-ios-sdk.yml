@@ -18,12 +18,12 @@ on:
       - "ci/**"
     paths:
       - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
+      - "SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh"
       - ".github/workflows/build-ios-sdk.yml"
   pull_request:
     paths:
       - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
+      - "SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh"
       - ".github/workflows/build-ios-sdk.yml"
 
 jobs:
@@ -43,21 +43,51 @@ jobs:
           swift --version
 
       - name: 🔨 编译并打包 XCFramework
-        working-directory: SDK/iOS/HelpBotSDK
         run: |
-          export CONFIGURATION="${CONFIGURATION}"
-          bash ../build_local.sh
+          set -euo pipefail
+          echo "构建 HelpBotSDK.xcframework（使用 packagePath 方式，避免 archive 产物缺失导致的组装失败）"
+
+          OUT_DIR="SDK/iOS/HelpBotSDK/build"
+          OUT_XCFRAMEWORK="${OUT_DIR}/HelpBotSDK.xcframework"
+          mkdir -p "${OUT_DIR}"
+
+          bash SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh "${OUT_XCFRAMEWORK}"
+
+          echo "打包 XCFramework..."
+          cd "${OUT_DIR}"
+          rm -f "HelpBotSDK.xcframework.zip"
+          zip -r "HelpBotSDK.xcframework.zip" "HelpBotSDK.xcframework"
+          cd -
+
+          echo "生成编译报告..."
+          REPORT_FILE="${OUT_DIR}/build-report.txt"
+          cat > "${REPORT_FILE}" << EOF
+          === HelpBot iOS SDK (XCFramework) 编译报告 ===
+
+          编译时间: $(date)
+          编译配置: ${CONFIGURATION}
+          Git Commit: ${{ github.sha }}
+          Git Branch: ${{ github.ref_name }}
+
+          === 环境信息 ===
+          $(sw_vers)
+
+          $(xcodebuild -version)
+
+          $(swift --version)
+          EOF
+          cat "${REPORT_FILE}"
 
       - name: 🔍 验证 XCFramework 结构 (CI 层级)
-        working-directory: SDK/iOS/HelpBotSDK
         run: |
+          set -euo pipefail
           echo "=== 检查真机架构 Modules ==="
-          ls -R build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules
+          ls -R SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules
           
           echo "=== 检查模拟器架构 Modules ==="
-          ls -R build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules
+          ls -R SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules
           
-          if [ ! -d "build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule" ]; then
+          if [ ! -d "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule" ]; then
             echo "❌ 错误: 找不到 swiftmodule 文件!"
             exit 1
           fi
