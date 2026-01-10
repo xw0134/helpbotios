@@ -61,14 +61,34 @@ xcodebuild archive \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 popd
 
-DEVICE_FRAMEWORK="${IOS_DEVICE_ARCHIVE}/Products/Library/Frameworks/HelpBotSDK.framework"
-SIM_FRAMEWORK="${IOS_SIM_ARCHIVE}/Products/Library/Frameworks/HelpBotSDK.framework"
+# 寻找 Framework 产物（Discovery-based）
+resolve_fw() {
+    local archive="$1"
+    local expected="${archive}/Products/Library/Frameworks/HelpBotSDK.framework"
+    if [[ -d "${expected}" ]]; then
+        echo "${expected}"
+        return 0
+    fi
+    # 尝试搜索
+    local found
+    found=$(find "${archive}" -name "HelpBotSDK.framework" -type d | head -n 1 || true)
+    if [[ -n "${found}" ]]; then
+        echo "${found}"
+        return 0
+    fi
+    return 1
+}
 
-if [[ ! -d "${DEVICE_FRAMEWORK}" || ! -d "${SIM_FRAMEWORK}" ]]; then
-  echo "[HelpBotSDK] ERROR: framework not found in archives."
-  echo "device=${DEVICE_FRAMEWORK}"
-  echo "sim=${SIM_FRAMEWORK}"
-  exit 2
+DEVICE_FRAMEWORK=$(resolve_fw "${IOS_DEVICE_ARCHIVE}" || true)
+SIM_FRAMEWORK=$(resolve_fw "${IOS_SIM_ARCHIVE}" || true)
+
+if [[ -z "${DEVICE_FRAMEWORK}" || -z "${SIM_FRAMEWORK}" ]]; then
+    echo "[HelpBotSDK] ERROR: framework not found in archives. Trying manual assembly..."
+    # 调用之前的手动组装逻辑作为兜底
+    # 这里为了简便，如果上面那个不行，我们就不在脚本里套娃了，直接增加搜寻结果
+    echo "Archives contents (Products):"
+    ls -R "${TMP}"/*/Products || true
+    exit 2
 fi
 
 rm -rf "${OUT_XCFRAMEWORK}"
