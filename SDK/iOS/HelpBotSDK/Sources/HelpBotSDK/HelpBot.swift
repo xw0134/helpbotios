@@ -676,8 +676,9 @@ public final class HelpBot {
      */
     public static func clearWebViewData(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
         DispatchQueue.main.async {
-            let hosts = Self.getWebChatHosts()
-            let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+            do {
+                let hosts = Self.getWebChatHosts()
+                let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
 
                 // 需要同时清理 default 与 nonPersistent（隐私模式下通常为 nonPersistent，但清理操作无副作用）
                 let stores: [WKWebsiteDataStore] = {
@@ -713,6 +714,9 @@ public final class HelpBot {
                 group.notify(queue: .main) {
                     completion?(.success())
                 }
+            } catch {
+                completion?(.failure(.internalError, "清理 WebView 数据异常: \(error.localizedDescription)"))
+            }
         }
     }
 
