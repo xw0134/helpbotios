@@ -238,38 +238,88 @@ resolve_library_with_modules() {
 
 rm -rf "$OUTPUT_PATH"
 
-if FW_DEVICE="$(resolve_framework "$DEVICE_ARCHIVE")" && FW_SIM="$(resolve_framework "$SIM_ARCHIVE")"; then
-    print_success "检测到 Framework 产物:"
-    print_info "device: $FW_DEVICE"
-    print_info "sim:    $FW_SIM"
-    
-    # 验证 Framework 包含 Modules 目录
-    if [[ ! -d "${FW_DEVICE}/Modules" ]]; then
-        print_error "iOS 真机 Framework 缺少 Modules 目录: ${FW_DEVICE}"
-        print_info "尝试查找 Modules 目录..."
-        find "$DEVICE_ARCHIVE" -name "Modules" -type d 2>/dev/null || true
-        exit 1
+rm -rf "$OUTPUT_PATH"
+
+STAGING_DIR="${BUILD_DIR}/_xcframework_staging"
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR"
+
+assemble_framework() {
+    local archive="$1"
+    local arch_name="$2"
+    local target_dir="${STAGING_DIR}/${arch_name}"
+    local fw_dir="${target_dir}/${SCHEME}.framework"
+    mkdir -p "${fw_dir}/Modules"
+    mkdir -p "${fw_dir}/Headers"
+
+    # 1. 查找并复制二进制文件
+    local lib=""
+    lib=$(find "$archive" -maxdepth 12 -type f \( -name "lib${SCHEME}.a" -o -name "${SCHEME}.a" \) 2>/dev/null | head -n 1 || true)
+    if [[ -z "$lib" ]]; then
+        # 尝试查找 framework 内的二进制
+        lib=$(find "$archive" -maxdepth 12 -type f -path "*/${SCHEME}.framework/${SCHEME}" 2>/dev/null | head -n 1 || true)
     fi
-    if [[ ! -d "${FW_SIM}/Modules" ]]; then
-        print_error "iOS 模拟器 Framework 缺少 Modules 目录: ${FW_SIM}"
-        print_info "尝试查找 Modules 目录..."
-        find "$SIM_ARCHIVE" -name "Modules" -type d 2>/dev/null || true
-        exit 1
+
+    if [[ -n "$lib" && -f "$lib" ]]; then
+        cp -f "$lib" "${fw_dir}/${SCHEME}"
+        print_info "已准备二进制 ($arch_name): $(basename "$lib")"
+    else
+        print_error "未找到二进制文件 ($arch_name)"
+        return 1
     fi
-    
-    print_success "Framework Modules 目录验证通过"
+
+    # 2. 查找并复制 Swift Modules
+    local module_dir=""
+    module_dir=$(find "$archive" -maxdepth 14 -type d -name "${SCHEME}.swiftmodule" 2>/dev/null | head -n 1 || true)
+    if [[ -n "$module_dir" && -d "$module_dir" ]]; then
+        cp -R "$module_dir" "${fw_dir}/Modules/"
+        print_info "已准备 Swift Modules ($arch_name)"
+    else
+        print_warning "未找到 Swift Modules ($arch_name)"
+    fi
+
+    # 3. 查找并复制 Headers (如果是 ObjC 混编或生成的 Bridge)
+    find "$archive" -maxdepth 14 -type f -name "*.h" -exec cp {} "${fw_dir}/Headers/" \; 2>/dev/null || true
+
+    # 4. 生成 Info.plist
+    cat > "${fw_dir}/Info.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>${SCHEME}</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.helpbot.${SCHEME}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>${SCHEME}</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+</dict>
+</plist>
+EOF
+
+    echo "${fw_dir}"
+    return 0
+}
+
+if FW_DEVICE=$(assemble_framework "$DEVICE_ARCHIVE" "ios-arm64") && FW_SIM=$(assemble_framework "$SIM_ARCHIVE" "ios-arm64_x86_64-simulator"); then
+    print_success "Framework 结构组装完成"
     
     xcodebuild -create-xcframework \
         -framework "$FW_DEVICE" \
         -framework "$FW_SIM" \
         -output "$OUTPUT_PATH"
 else
-    print_error "无法找到有效的 Framework 产物"
-    print_error "这通常意味着 Swift Package 配置有问题或编译失败"
-    print_info "请检查:"
-    print_info "  1. Package.swift 配置是否正确"
-    print_info "  2. 编译日志中是否有错误"
-    print_info "  3. Xcode 版本是否满足要求 (15.2+)"
+    print_error "组装 Framework 失败"
     exit 1
 fi
 
