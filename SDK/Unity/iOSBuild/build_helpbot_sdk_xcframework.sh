@@ -96,16 +96,23 @@ assemble_fw_manually() {
 
     # 2. 查找并复制 Swift Modules
     local module_dir=""
-    # 在整个 TMP 目录下找，包括 DerivedData，因为 SP 编译有时会把模块界面放那
-    module_dir=$(find "${archive}" "${TMP}/DerivedData" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" | head -n 1 || true)
+    local arch_filter="iphoneos"
+    if [[ "$arch_name" == *"simulator"* ]]; then
+        arch_filter="iphonesimulator"
+    fi
+
+    echo "Searching modules for ${arch_name} with filter ${arch_filter}..." >&2
+    # 优先在 archive 内部找，然后再去 DerivedData 找，且路径必须包含对应的架构标识
+    module_dir=$(find "${archive}" "${TMP}/DerivedData" -path "*${arch_filter}*" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" | head -n 1 || true)
+    
     if [[ -n "$module_dir" && -d "$module_dir" ]]; then
         cp -R "$module_dir" "${target_fw}/Modules/"
         echo "Found Swift Modules: $module_dir" >&2
     else
-        echo "WARNING: Swift Modules not found in archive or DerivedData" >&2
+        echo "WARNING: Swift Modules not found for ${arch_name} in archive or DerivedData" >&2
         # 尝试找 .swiftinterface
         local interface
-        interface=$(find "${archive}" "${TMP}/DerivedData" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
+        interface=$(find "${archive}" "${TMP}/DerivedData" -path "*${arch_filter}*" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
         if [[ -n "$interface" ]]; then
             cp "$interface" "${target_fw}/Modules/"
             echo "Found Swift Interface: $interface" >&2
