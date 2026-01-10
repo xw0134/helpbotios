@@ -65,6 +65,9 @@ xcodebuild archive \
   SWIFT_EMIT_MODULE_INTERFACE=YES
 popd
 
+echo "[HelpBotSDK] Archive listing for debug:" >&2
+find "${TMP}" -maxdepth 10 -not -path "*/.*" >&2
+
 # 手动组装 Framework 结构
 assemble_fw_manually() {
     local archive="$1"
@@ -93,15 +96,16 @@ assemble_fw_manually() {
 
     # 2. 查找并复制 Swift Modules
     local module_dir=""
-    module_dir=$(find "$archive" -type d -name "HelpBotSDK.swiftmodule" | grep -v "DerivedData" | head -n 1 || true)
+    # 在整个 TMP 目录下找，包括 DerivedData，因为 SP 编译有时会把模块界面放那
+    module_dir=$(find "${archive}" "${TMP}/DerivedData" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" | head -n 1 || true)
     if [[ -n "$module_dir" && -d "$module_dir" ]]; then
         cp -R "$module_dir" "${target_fw}/Modules/"
         echo "Found Swift Modules: $module_dir" >&2
     else
-        echo "WARNING: Swift Modules not found in $archive" >&2
-        # 尝试查找 .swiftinterface 作为备选
+        echo "WARNING: Swift Modules not found in archive or DerivedData" >&2
+        # 尝试找 .swiftinterface
         local interface
-        interface=$(find "$archive" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
+        interface=$(find "${archive}" "${TMP}/DerivedData" -name "HelpBotSDK.swiftinterface" | head -n 1 || true)
         if [[ -n "$interface" ]]; then
             cp "$interface" "${target_fw}/Modules/"
             echo "Found Swift Interface: $interface" >&2
