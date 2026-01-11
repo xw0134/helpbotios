@@ -13,6 +13,7 @@ OUT_XCFRAMEWORK="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 PKG_DIR="${ROOT_DIR}/SDK/iOS/HelpBotSDK"
 CONFIGURATION="${CONFIGURATION:-Release}"
+PRIVACY_MANIFEST_SOURCE="${PKG_DIR}/PrivacyInfo.xcprivacy"
 
 TMP="${ROOT_DIR}/SDK/Unity/_tmp_helpbot_sdk_build"
 rm -rf "${TMP}"
@@ -127,8 +128,60 @@ assemble_fw_manually() {
 
     # 3. 复制 Headers
     echo "Searching headers for ${arch_name} (including ${dd_dir})..." >&2
-    # 寻找生成的 Swift Header 或公共头文件
+    # 3.1 优先复制 Swift 生成的 ObjC 兼容头（通常在 DerivedData 内，且名字稳定为 HelpBotSDK-Swift.h）
+    local swift_header=""
+    swift_header=$(find "${dd_dir}" "${archive}" -type f -name "HelpBotSDK-Swift.h" -not -path "*/Index.noindex/*" 2>/dev/null | head -n 1 || true)
+    if [[ -n "$swift_header" && -f "$swift_header" ]]; then
+        cp -f "$swift_header" "${target_fw}/Headers/HelpBotSDK-Swift.h"
+        echo "Found Swift ObjC Header: $swift_header" >&2
+    fi
+
+    # 3.2 再复制 archive / DerivedData 中其它可能存在的头文件（若有）
     find "${archive}" "${dd_dir}" -name "*.h" -not -path "*/Index.noindex/*" -exec cp -f {} "${target_fw}/Headers/" \; 2>/dev/null || true
+
+    # 3.3 生成稳定的 Umbrella Header（保证发布结构稳定：Headers 不为空）
+    if [[ ! -f "${target_fw}/Headers/HelpBotSDK.h" ]]; then
+        if [[ -f "${target_fw}/Headers/HelpBotSDK-Swift.h" ]]; then
+            cat > "${target_fw}/Headers/HelpBotSDK.h" << EOF
+/**
+ * HelpBotSDK Umbrella Header
+ *
+ * 说明：
+ * - 用于保证 HelpBotSDK.framework/Headers 结构稳定存在（SDK 发布要求）。
+ * - Swift 对外暴露的 @objc 接口由 Xcode 生成的 HelpBotSDK-Swift.h 提供（若存在）。
+ */
+#import <Foundation/Foundation.h>
+
+#if __has_include("HelpBotSDK-Swift.h")
+#import "HelpBotSDK-Swift.h"
+#endif
+EOF
+        else
+            cat > "${target_fw}/Headers/HelpBotSDK.h" << EOF
+/**
+ * HelpBotSDK Umbrella Header
+ *
+ * 说明：
+ * - 用于保证 HelpBotSDK.framework/Headers 结构稳定存在（SDK 发布要求）。
+ * - 若需要暴露 ObjC 可调用接口，请在 SDK 中提供 @objc public API，使 Xcode 生成 HelpBotSDK-Swift.h。
+ */
+#import <Foundation/Foundation.h>
+EOF
+        fi
+        echo "Generated umbrella header: ${target_fw}/Headers/HelpBotSDK.h" >&2
+    fi
+
+    # 3.4 生成 module.modulemap（让 Xcode/Clang 对 framework 的 module 识别更稳定）
+    if [[ ! -f "${target_fw}/Modules/module.modulemap" ]]; then
+        cat > "${target_fw}/Modules/module.modulemap" << EOF
+framework module HelpBotSDK {
+  umbrella header "HelpBotSDK.h"
+  export *
+  module * { export * }
+}
+EOF
+        echo "Generated module.modulemap: ${target_fw}/Modules/module.modulemap" >&2
+    fi
 
     # 4. 生成 Info.plist
     cat > "${target_fw}/Info.plist" << EOF
@@ -155,6 +208,14 @@ assemble_fw_manually() {
 </dict>
 </plist>
 EOF
+
+    # 5. 复制隐私清单（第三方 SDK 交付要求）
+    if [[ -f "${PRIVACY_MANIFEST_SOURCE}" ]]; then
+        cp -f "${PRIVACY_MANIFEST_SOURCE}" "${target_fw}/PrivacyInfo.xcprivacy"
+        echo "Copied Privacy Manifest: ${PRIVACY_MANIFEST_SOURCE}" >&2
+    else
+        echo "WARNING: PrivacyInfo.xcprivacy not found: ${PRIVACY_MANIFEST_SOURCE}" >&2
+    fi
     echo "${target_fw}"
 }
 
@@ -165,6 +226,8 @@ validate_framework_structure() {
     local modules_dir="${fw_dir}/Modules"
     local swiftmodule_dir="${modules_dir}/HelpBotSDK.swiftmodule"
     local headers_dir="${fw_dir}/Headers"
+    local umbrella_header="${headers_dir}/HelpBotSDK.h"
+    local modulemap="${modules_dir}/module.modulemap"
 
     if [[ ! -d "${modules_dir}" ]]; then
         echo "[HelpBotSDK] ERROR: missing Modules (${label}): ${modules_dir}" >&2
@@ -178,8 +241,17 @@ validate_framework_structure() {
         echo "[HelpBotSDK] ERROR: missing Headers (${label}): ${headers_dir}" >&2
         return 1
     fi
+    if [[ ! -f "${umbrella_header}" ]]; then
+        echo "[HelpBotSDK] ERROR: missing umbrella header (${label}): ${umbrella_header}" >&2
+        return 1
+    fi
+    if [[ ! -f "${modulemap}" ]]; then
+        echo "[HelpBotSDK] ERROR: missing module.modulemap (${label}): ${modulemap}" >&2
+        return 1
+    fi
     if ! find "${headers_dir}" -maxdepth 1 -type f -name "*.h" | grep -q .; then
-        echo "[HelpBotSDK] WARNING: Headers is empty (${label}): ${headers_dir} (Normal for pure Swift)" >&2
+        echo "[HelpBotSDK] ERROR: Headers is empty (${label}): ${headers_dir}" >&2
+        return 1
     fi
 
     echo "[HelpBotSDK] OK: ${label} framework structure valid" >&2

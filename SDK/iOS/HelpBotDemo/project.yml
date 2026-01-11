@@ -4,10 +4,6 @@ options:
     iOS: "13.0"
   bundleIdPrefix: com.example.helpbot
 
-packages:
-  HelpBotSDK:
-    path: ../HelpBotSDK
-
 targets:
   HelpBotDemo:
     type: application
@@ -43,7 +39,9 @@ targets:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
           SWIFT_COMPILATION_MODE: wholemodule
     dependencies:
-      - package: HelpBotSDK
-        product: HelpBotSDK
+      # 重要：Demo 必须使用导出的二进制产物，禁止直接引用 SDK 源码/Swift Package。
+      # Third-party 标准交付形态：HelpBotSDK.xcframework
+      - framework: ../HelpBotSDK.xcframework
+        embed: true
 
 

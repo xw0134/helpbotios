@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+     HelpBotSDK 隐私清单（Privacy Manifest）
+     说明：
+     - 该文件用于满足 Apple 对第三方 SDK 的隐私披露要求（2026 交付标准）。
+     - 本 SDK 不做跨 App 跟踪（Tracking）。
+     - SDK 在“上报系统信息到服务器（reportSystemInfoToServer）”场景下，会上报部分设备/诊断信息（可通过 fullPrivacyMode 最小化上报）。
+     -->
+
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- 数据收集声明：按最小可用集合声明（不用于跟踪） -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <dict>
+            <!-- device_id：默认优先使用 IDFV；否则使用持久化 UUID -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeDeviceID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- 设备/网络/电量/磁盘等诊断信息：用于稳定性诊断与问题排查 -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
+

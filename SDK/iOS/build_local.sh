@@ -13,6 +13,7 @@ SCHEME="HelpBotSDK"
 CONFIGURATION="${CONFIGURATION:-Release}"  # 可选: Debug, Release（允许通过环境变量覆盖）
 BUILD_DIR="build"
 XCFRAMEWORK_NAME="${SCHEME}.xcframework"
+PRIVACY_MANIFEST_SOURCE="$(cd "$(dirname "$0")" && pwd)/HelpBotSDK/PrivacyInfo.xcprivacy"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -65,6 +66,8 @@ run_xcodebuild_archive() {
             ONLY_ACTIVE_ARCH=NO \
             DEFINES_MODULE=YES \
             SWIFT_EMIT_MODULE_INTERFACE=YES \
+            SWIFT_INSTALL_OBJC_HEADER=YES \
+            SWIFT_OBJC_INTERFACE_HEADER_NAME="${SCHEME}-Swift.h" \
             GENERATE_INFOPLIST_FILE=YES \
             | xcpretty
     else
@@ -78,6 +81,8 @@ run_xcodebuild_archive() {
             ONLY_ACTIVE_ARCH=NO \
             DEFINES_MODULE=YES \
             SWIFT_EMIT_MODULE_INTERFACE=YES \
+            SWIFT_INSTALL_OBJC_HEADER=YES \
+            SWIFT_OBJC_INTERFACE_HEADER_NAME="${SCHEME}-Swift.h" \
             GENERATE_INFOPLIST_FILE=YES
     fi
 }
@@ -281,6 +286,35 @@ assemble_framework() {
     # 3. 查找并复制 Headers (如果是 ObjC 混编或生成的 Bridge)
     find "$archive" -maxdepth 14 -type f -name "*.h" -exec cp {} "${fw_dir}/Headers/" \; 2>/dev/null || true
 
+    # 3.1 生成稳定的 Umbrella Header（确保 ObjC 可用的头入口存在）
+    if [[ ! -f "${fw_dir}/Headers/${SCHEME}.h" ]]; then
+        cat > "${fw_dir}/Headers/${SCHEME}.h" << EOF
+/**
+ * ${SCHEME} Umbrella Header
+ *
+ * 说明：
+ * - 大厂 SDK 交付标准：同时支持 Swift / Objective-C 接入。
+ * - Swift 对外暴露的 @objc API 由 Xcode 生成的 "${SCHEME}-Swift.h" 提供（若存在）。
+ */
+#import <Foundation/Foundation.h>
+
+#if __has_include("${SCHEME}-Swift.h")
+#import "${SCHEME}-Swift.h"
+#endif
+EOF
+    fi
+
+    # 3.2 生成 module.modulemap（使 @import / #import 更稳定）
+    if [[ ! -f "${fw_dir}/Modules/module.modulemap" ]]; then
+        cat > "${fw_dir}/Modules/module.modulemap" << EOF
+framework module ${SCHEME} {
+  umbrella header "${SCHEME}.h"
+  export *
+  module * { export * }
+}
+EOF
+    fi
+
     # 4. 生成 Info.plist
     cat > "${fw_dir}/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -306,6 +340,13 @@ assemble_framework() {
 </dict>
 </plist>
 EOF
+
+    # 5. 复制隐私清单（第三方 SDK 交付要求）
+    if [[ -f "${PRIVACY_MANIFEST_SOURCE}" ]]; then
+        cp -f "${PRIVACY_MANIFEST_SOURCE}" "${fw_dir}/PrivacyInfo.xcprivacy"
+    else
+        print_warning "未找到 PrivacyInfo.xcprivacy（建议补齐以满足第三方 SDK 交付要求）：${PRIVACY_MANIFEST_SOURCE}"
+    fi
 
     echo "${fw_dir}"
     return 0

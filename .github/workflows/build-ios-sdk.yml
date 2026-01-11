@@ -91,6 +91,23 @@ jobs:
             echo "❌ 错误: 找不到 swiftmodule 文件!"
             exit 1
           fi
+
+          echo "=== 检查真机架构 Headers ==="
+          ls -la SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers
+          if ! find "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers" -maxdepth 1 -type f -name "*.h" | grep -q .; then
+            echo "❌ 错误: Headers 为空（真机）!"
+            exit 1
+          fi
+          echo "✅ 真机 Headers 校验通过"
+
+          echo "=== 检查模拟器架构 Headers ==="
+          ls -la SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers
+          if ! find "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers" -maxdepth 1 -type f -name "*.h" | grep -q .; then
+            echo "❌ 错误: Headers 为空（模拟器）!"
+            exit 1
+          fi
+          echo "✅ 模拟器 Headers 校验通过"
+
           echo "✅ 结构校验通过"
 
       - name: ⬆️ 上传产物
