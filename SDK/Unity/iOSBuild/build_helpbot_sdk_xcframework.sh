@@ -24,30 +24,12 @@ IOS_SIM_ARCHIVE="${TMP}/HelpBotSDK-iOS-sim.xcarchive"
 set -x
 
 echo "[HelpBotSDK] archive iOS (device)"
-xcodebuild archive \
-  -scheme HelpBotSDK \
-  -destination "generic/platform=iOS" \
-  -archivePath "${IOS_DEVICE_ARCHIVE}" \
-  -derivedDataPath "${TMP}/DerivedData" \
-  -workspace "${TMP}/HelpBotSDK.xcworkspace" \
-  -configuration "${CONFIGURATION}" \
-  SKIP_INSTALL=NO \
-  BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-  DEFINES_MODULE=YES \
-  SWIFT_EMIT_MODULE_INTERFACE=YES \
-  SWIFT_INSTALL_OBJC_HEADER=YES \
-  SWIFT_OBJC_INTERFACE_HEADER_NAME="HelpBotSDK-Swift.h" \
-  OTHER_SWIFT_FLAGS="-no-verify-emitted-module-interface" \
-  -quiet || true
-
-# Swift Package 默认没有 workspace，这里用 xcodebuild -scheme -package-path 方式构建 framework 更稳
-echo "[HelpBotSDK] archive iOS (device) via pushd"
 pushd "${PKG_DIR}"
 xcodebuild archive \
   -scheme HelpBotSDK \
   -destination "generic/platform=iOS" \
   -archivePath "${IOS_DEVICE_ARCHIVE}" \
-  -derivedDataPath "${TMP}/DerivedData" \
+  -derivedDataPath "${TMP}/DerivedData-ios" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
@@ -63,7 +45,7 @@ xcodebuild archive \
   -scheme HelpBotSDK \
   -destination "generic/platform=iOS Simulator" \
   -archivePath "${IOS_SIM_ARCHIVE}" \
-  -derivedDataPath "${TMP}/DerivedData" \
+  -derivedDataPath "${TMP}/DerivedData-sim" \
   -configuration "${CONFIGURATION}" \
   SKIP_INSTALL=NO \
   BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
@@ -105,18 +87,25 @@ assemble_fw_manually() {
     # 2. 查找并复制 Swift Modules
     local module_dir=""
     local target_file="arm64-apple-ios.swiftinterface"
+    local arch_tag="iphoneos"
     if [[ "$arch_name" == *"simulator"* ]]; then
         target_file="arm64-apple-ios-simulator.swiftinterface"
+        arch_tag="iphonesimulator"
     fi
 
-    echo "Searching modules for ${arch_name} (looking for ${target_file})..." >&2
+    echo "Searching modules for ${arch_name} (looking for ${target_file} with tag ${arch_tag})..." >&2
     
-    # 获取所有候选目录
+    # 优先在各自的 DerivedData 目录下找，确保不串号
+    local dd_dir="${TMP}/DerivedData-ios"
+    if [[ "$arch_tag" == "iphonesimulator" ]]; then
+        dd_dir="${TMP}/DerivedData-sim"
+    fi
+
     local candidates
-    candidates=$(find "${archive}" "${TMP}/DerivedData" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" || true)
+    candidates=$(find "${archive}" "${dd_dir}" -type d -name "HelpBotSDK.swiftmodule" | grep -v "Index.noindex" || true)
     
     for cand in $candidates; do
-        if [[ -f "${cand}/${target_file}" ]]; then
+        if [[ -f "${cand}/${target_file}" || -f "${cand}/arm64.swiftinterface" ]]; then
             module_dir="$cand"
             break
         fi
@@ -126,10 +115,10 @@ assemble_fw_manually() {
         cp -R "$module_dir" "${target_fw}/Modules/"
         echo "Found Swift Modules: $module_dir" >&2
     else
-        echo "WARNING: Swift Modules not found for ${arch_name} ($target_file) in archive or DerivedData" >&2
-        # 尝试查找 .swiftinterface 文件本身
+        echo "WARNING: Swift Modules not found for ${arch_name} in archive or ${dd_dir}" >&2
+        # 兜底：尝试找任何符合的文件
         local interface
-        interface=$(find "${archive}" "${TMP}/DerivedData" -name "$target_file" | head -n 1 || true)
+        interface=$(find "${archive}" "${dd_dir}" -name "${target_file}" | head -n 1 || true)
         if [[ -n "$interface" ]]; then
             cp "$interface" "${target_fw}/Modules/"
             echo "Found Swift Interface file: $interface" >&2
