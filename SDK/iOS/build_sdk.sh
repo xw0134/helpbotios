@@ -57,45 +57,53 @@ print_info() { printf '%b\n' "${BLUE} $1${NC}" >&2; }
 # ============================================
 # xcodebuild wrapper（CI 兼容：可选 xcpretty）
 # ============================================
+supports_package_path_flag() {
+    # 兼容不同 xcodebuild 版本：
+    # - 部分版本支持 `-packagePath`（老接口）
+    # - 部分版本已移除该参数（CI 报: invalid option '-packagePath'）
+    xcodebuild -help 2>&1 | grep -q -- "-packagePath"
+}
+
 run_xcodebuild_archive() {
     local destination="$1"
     local archive_path="$2"
     local configuration="$3"
     local derived_data_path="$4"
 
+    # 注意：
+    # - 当不支持 -packagePath 时，我们会在 PKG_DIR 下执行 xcodebuild
+    # - 因此 archive_path/derived_data_path 必须传绝对路径
+    local cmd_common=(
+        archive
+        -scheme "$SCHEME"
+        -destination "$destination"
+        -archivePath "$archive_path"
+        -derivedDataPath "$derived_data_path"
+        -configuration "$configuration"
+        SKIP_INSTALL=NO
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+        ONLY_ACTIVE_ARCH=NO
+        DEFINES_MODULE=YES
+        SWIFT_EMIT_MODULE_INTERFACE=YES
+        SWIFT_INSTALL_OBJC_HEADER=YES
+        SWIFT_OBJC_INTERFACE_HEADER_NAME="${SCHEME}-Swift.h"
+        GENERATE_INFOPLIST_FILE=YES
+        -skipPackagePluginValidation
+        -skipMacroValidation
+    )
+
     if command -v xcpretty &> /dev/null; then
-        xcodebuild archive \
-            -packagePath "$PKG_DIR" \
-            -scheme "$SCHEME" \
-            -destination "$destination" \
-            -archivePath "$archive_path" \
-            -derivedDataPath "$derived_data_path" \
-            -configuration "$configuration" \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            ONLY_ACTIVE_ARCH=NO \
-            DEFINES_MODULE=YES \
-            SWIFT_EMIT_MODULE_INTERFACE=YES \
-            SWIFT_INSTALL_OBJC_HEADER=YES \
-            SWIFT_OBJC_INTERFACE_HEADER_NAME="${SCHEME}-Swift.h" \
-            GENERATE_INFOPLIST_FILE=YES \
-            | xcpretty
+        if supports_package_path_flag; then
+            xcodebuild "${cmd_common[@]}" -packagePath "$PKG_DIR" | xcpretty
+        else
+            (cd "$PKG_DIR" && xcodebuild "${cmd_common[@]}") | xcpretty
+        fi
     else
-        xcodebuild archive \
-            -packagePath "$PKG_DIR" \
-            -scheme "$SCHEME" \
-            -destination "$destination" \
-            -archivePath "$archive_path" \
-            -derivedDataPath "$derived_data_path" \
-            -configuration "$configuration" \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            ONLY_ACTIVE_ARCH=NO \
-            DEFINES_MODULE=YES \
-            SWIFT_EMIT_MODULE_INTERFACE=YES \
-            SWIFT_INSTALL_OBJC_HEADER=YES \
-            SWIFT_OBJC_INTERFACE_HEADER_NAME="${SCHEME}-Swift.h" \
-            GENERATE_INFOPLIST_FILE=YES
+        if supports_package_path_flag; then
+            xcodebuild "${cmd_common[@]}" -packagePath "$PKG_DIR"
+        else
+            (cd "$PKG_DIR" && xcodebuild "${cmd_common[@]}")
+        fi
     fi
 }
 
@@ -140,6 +148,8 @@ swift --version
 # ============================================
 print_header "2. 清理旧的编译产物"
 
+cd "$SCRIPT_DIR"
+
 if [ -d "$BUILD_DIR" ]; then
     rm -rf "$BUILD_DIR"
     print_success "已删除旧的 $BUILD_DIR 目录"
@@ -151,13 +161,16 @@ fi
 mkdir -p "$BUILD_DIR"
 print_success "创建新的 $BUILD_DIR 目录"
 
+# 绝对路径（避免 run_xcodebuild_archive 内部 cd 导致相对路径失效）
+BUILD_DIR_ABS="${SCRIPT_DIR}/${BUILD_DIR}"
+
 # ============================================
 # 3. 编译 iOS 真机架构
 # ============================================
 print_header "3. 编译 iOS 真机架构 (arm64)"
 print_info "开始编译..."
-DERIVED_DATA_DEVICE="$BUILD_DIR/DerivedData-ios"
-run_xcodebuild_archive "generic/platform=iOS" "$BUILD_DIR/ios.xcarchive" "$CONFIGURATION" "$DERIVED_DATA_DEVICE"
+DERIVED_DATA_DEVICE="${BUILD_DIR_ABS}/DerivedData-ios"
+run_xcodebuild_archive "generic/platform=iOS" "${BUILD_DIR_ABS}/ios.xcarchive" "$CONFIGURATION" "$DERIVED_DATA_DEVICE"
 print_success "iOS 真机架构编译完成"
 
 # ============================================
@@ -165,8 +178,8 @@ print_success "iOS 真机架构编译完成"
 # ============================================
 print_header "4. 编译 iOS 模拟器架构 (x86_64, arm64)"
 print_info "开始编译..."
-DERIVED_DATA_SIM="$BUILD_DIR/DerivedData-sim"
-run_xcodebuild_archive "generic/platform=iOS Simulator" "$BUILD_DIR/ios-simulator.xcarchive" "$CONFIGURATION" "$DERIVED_DATA_SIM"
+DERIVED_DATA_SIM="${BUILD_DIR_ABS}/DerivedData-sim"
+run_xcodebuild_archive "generic/platform=iOS Simulator" "${BUILD_DIR_ABS}/ios-simulator.xcarchive" "$CONFIGURATION" "$DERIVED_DATA_SIM"
 print_success "iOS 模拟器架构编译完成"
 
 # ============================================
@@ -175,13 +188,13 @@ print_success "iOS 模拟器架构编译完成"
 print_header "5. 创建 XCFramework"
 print_info "开始创建 XCFramework..."
 
-DEVICE_ARCHIVE="$BUILD_DIR/ios.xcarchive"
-SIM_ARCHIVE="$BUILD_DIR/ios-simulator.xcarchive"
-OUTPUT_PATH="$BUILD_DIR/$XCFRAMEWORK_NAME"
+DEVICE_ARCHIVE="${BUILD_DIR_ABS}/ios.xcarchive"
+SIM_ARCHIVE="${BUILD_DIR_ABS}/ios-simulator.xcarchive"
+OUTPUT_PATH="${BUILD_DIR_ABS}/${XCFRAMEWORK_NAME}"
 
 rm -rf "$OUTPUT_PATH"
 
-STAGING_DIR="${BUILD_DIR}/_xcframework_staging"
+STAGING_DIR="${BUILD_DIR_ABS}/_xcframework_staging"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
@@ -303,7 +316,7 @@ print_success "XCFramework 创建完成"
 # 6. 验证 XCFramework（必须包含 Modules / Headers）
 # ============================================
 print_header "6. 验证 XCFramework"
-XCROOT="$BUILD_DIR/$XCFRAMEWORK_NAME"
+XCROOT="${BUILD_DIR_ABS}/${XCFRAMEWORK_NAME}"
 
 DEVICE_MODULES="$XCROOT/ios-arm64/${SCHEME}.framework/Modules"
 SIM_MODULES="$XCROOT/ios-arm64_x86_64-simulator/${SCHEME}.framework/Modules"
@@ -342,7 +355,7 @@ print_success "XCFramework 验证通过（Modules/Headers 完整）"
 # 7. 生成编译报告
 # ============================================
 print_header "7. 生成编译报告"
-REPORT_FILE="$BUILD_DIR/build-report.txt"
+REPORT_FILE="${BUILD_DIR_ABS}/build-report.txt"
 
 cat > "$REPORT_FILE" << EOF
 === HelpBot iOS SDK Build Report ===
@@ -368,7 +381,7 @@ print_success "编译报告已生成: $REPORT_FILE"
 # ============================================
 print_header "8. 打包 XCFramework"
 (
-  cd "$BUILD_DIR"
+  cd "$BUILD_DIR_ABS"
   rm -f "$XCFRAMEWORK_NAME.zip" || true
   zip -qr "$XCFRAMEWORK_NAME.zip" "$XCFRAMEWORK_NAME"
 )
