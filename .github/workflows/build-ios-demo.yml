@@ -64,6 +64,22 @@ jobs:
           unzip -q ./build/_sdk_artifact/HelpBotSDK.xcframework.zip -d .
           test -d ./HelpBotSDK.xcframework
 
+      - name: Verify HelpBotSDK.xcframework structure (must be importable)
+        if: ${{ github.event_name == 'workflow_run' }}
+        working-directory: SDK/iOS
+        run: |
+          set -euo pipefail
+          test -f ./HelpBotSDK.xcframework/Info.plist
+          test -d ./HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework
+          test -d ./HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework
+          test -d ./HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule
+          test -d ./HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule
+          test -f ./HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/module.modulemap
+          test -f ./HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules/module.modulemap
+          test -f ./HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers/HelpBotSDK.h
+          test -f ./HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers/HelpBotSDK.h
+          echo "✅ HelpBotSDK.xcframework is ready at SDK/iOS/HelpBotSDK.xcframework"
+
       - name: Prepare HelpBotSDK.xcframework (manual dispatch requires local xcframework)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         working-directory: SDK/iOS
