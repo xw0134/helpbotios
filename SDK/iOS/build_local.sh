@@ -25,11 +25,13 @@ fi
 # ============================================
 # 配置区域
 # ============================================
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PKG_DIR="${SCRIPT_DIR}/HelpBotSDK"
 SCHEME="HelpBotSDK"
 CONFIGURATION="${CONFIGURATION:-Release}"  # 可选: Debug, Release（允许通过环境变量覆盖）
 BUILD_DIR="build"
 XCFRAMEWORK_NAME="${SCHEME}.xcframework"
-PRIVACY_MANIFEST_SOURCE="$(cd "$(dirname "$0")" && pwd)/HelpBotSDK/PrivacyInfo.xcprivacy"
+PRIVACY_MANIFEST_SOURCE="${PKG_DIR}/PrivacyInfo.xcprivacy"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -76,6 +78,7 @@ run_xcodebuild_archive() {
 
     if command -v xcpretty &> /dev/null; then
         xcodebuild archive \
+            -packagePath "$PKG_DIR" \
             -scheme "$SCHEME" \
             -destination "$destination" \
             -archivePath "$archive_path" \
@@ -92,6 +95,7 @@ run_xcodebuild_archive() {
             | xcpretty
     else
         xcodebuild archive \
+            -packagePath "$PKG_DIR" \
             -scheme "$SCHEME" \
             -destination "$destination" \
             -archivePath "$archive_path" \
@@ -126,6 +130,14 @@ if ! command -v xcodebuild &> /dev/null; then
     exit 1
 fi
 print_success "Xcode 已安装"
+
+# 检查 Swift Package 是否存在（CI 必须依赖 Package.swift）
+if [[ ! -f "${PKG_DIR}/Package.swift" ]]; then
+    print_error "未找到 Swift Package：${PKG_DIR}/Package.swift"
+    print_error "请确认仓库完整，且 build_local.sh 位于 SDK/iOS 目录下"
+    exit 1
+fi
+print_success "Swift Package 已就绪: ${PKG_DIR}/Package.swift"
 
 # 显示版本信息
 printf '\n' >&2
