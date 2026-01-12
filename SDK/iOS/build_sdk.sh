@@ -124,6 +124,22 @@ if ! command -v xcodebuild &> /dev/null; then
 fi
 print_success "Xcode 已安装"
 
+# 基础命令检查（macOS 默认具备，但部分精简 CI 环境可能缺失）
+require_cmd() {
+    local name="$1"
+    if ! command -v "$name" &> /dev/null; then
+        print_error "缺少必要命令: ${name}"
+        exit 1
+    fi
+}
+require_cmd "zip"
+require_cmd "find"
+require_cmd "grep"
+require_cmd "head"
+require_cmd "date"
+require_cmd "hostname"
+print_success "基础命令检查通过 (zip/find/grep/head/date/hostname)"
+
 if [[ ! -f "${PKG_DIR}/Package.swift" ]]; then
     print_error "未找到 Swift Package：${PKG_DIR}/Package.swift"
     print_error "请确认仓库完整，且 build_sdk.sh 位于 SDK/iOS 目录下"
@@ -232,6 +248,21 @@ assemble_framework() {
 
     # 3) Headers：复制生成的 .h（若没有则生成 Umbrella Header，保证 ObjC 入口稳定）
     find "$archive" -maxdepth 14 -type f -name "*.h" -exec cp {} "${fw_dir}/Headers/" \; 2>/dev/null || true
+
+    # 3.1) 兼容性：显式补齐 Swift 生成的 ObjC 头（${SCHEME}-Swift.h）
+    # 说明：
+    # - 对于包含 public @objc API 的 Swift Framework，Xcode 会生成 `${SCHEME}-Swift.h`
+    # - 该头文件不一定会落在 archive 的浅层目录中（不同 Xcode/构建形态路径差异较大）
+    # - 若缺失，纯 Objective-C 工程将无法调用 SDK 对外暴露的 @objc API（例如 HBHelpBot）
+    local objc_header_path=""
+    objc_header_path=$(find "$archive" "$derived_data_path" -maxdepth 30 -type f -name "${SCHEME}-Swift.h" 2>/dev/null | head -n 1 || true)
+    if [[ -n "$objc_header_path" && -f "$objc_header_path" ]]; then
+        cp -f "$objc_header_path" "${fw_dir}/Headers/${SCHEME}-Swift.h"
+        print_info "已补齐 ObjC 兼容头: ${SCHEME}-Swift.h ($arch_name)"
+    else
+        print_warning "未找到 ${SCHEME}-Swift.h（$arch_name）。若你需要 Objective-C 接入，请确认：SWIFT_INSTALL_OBJC_HEADER=YES 且存在 public @objc API。"
+    fi
+
     if [[ ! -f "${fw_dir}/Headers/${SCHEME}.h" ]]; then
         cat > "${fw_dir}/Headers/${SCHEME}.h" << EOF
 /**
@@ -347,6 +378,14 @@ fi
 if [[ ! -d "$SIM_HEADERS" || ! -f "$SIM_HEADERS/${SCHEME}.h" ]]; then
     print_error "iOS 模拟器 Headers 缺失/不完整: $SIM_HEADERS"
     exit 1
+fi
+
+# ObjC 兼容头：若缺失则提示（不强制失败，避免未来无 @objc API 时误伤）
+if [[ ! -f "$DEVICE_HEADERS/${SCHEME}-Swift.h" ]]; then
+    print_warning "iOS 真机缺少 ${SCHEME}-Swift.h（仅当需要 Objective-C 接入时才是问题）"
+fi
+if [[ ! -f "$SIM_HEADERS/${SCHEME}-Swift.h" ]]; then
+    print_warning "iOS 模拟器缺少 ${SCHEME}-Swift.h（仅当需要 Objective-C 接入时才是问题）"
 fi
 
 print_success "XCFramework 验证通过（Modules/Headers 完整）"
