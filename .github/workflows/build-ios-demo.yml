@@ -136,6 +136,7 @@ jobs:
           name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
           path: |
             SDK/iOS/build/HelpBotDemo.xcarchive.zip
+            SDK/iOS/build/HelpBotDemo-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
 
