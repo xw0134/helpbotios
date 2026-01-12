@@ -47,16 +47,53 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           xcodegen --version
 
-      - name: Download HelpBotSDK.xcframework artifact (from SDK workflow run)
+      - name: Resolve SDK workflow run (workflow_run)
         if: ${{ github.event_name == 'workflow_run' }}
+        run: |
+          set -euo pipefail
+          echo "SDK_RUN_ID=${{ github.event.workflow_run.id }}" >> "$GITHUB_ENV"
+          echo "SDK_HEAD_SHA=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
+
+      - name: Resolve latest successful SDK run (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/github-script@v7
+        id: resolve_sdk
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const workflow_id = 'build-ios-sdk.yml';
+            const res = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id,
+              branch,
+              status: 'success',
+              per_page: 1,
+            });
+            if (!res.data.workflow_runs || res.data.workflow_runs.length === 0) {
+              core.setFailed(`No successful SDK workflow runs found for branch ${branch}. Please run "Build iOS SDK" first.`);
+              return;
+            }
+            const run = res.data.workflow_runs[0];
+            core.info(`Using SDK run_id=${run.id}, head_sha=${run.head_sha}`);
+            core.setOutput('run_id', String(run.id));
+            core.setOutput('head_sha', run.head_sha);
+
+      - name: Export SDK run info (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          echo "SDK_RUN_ID=${{ steps.resolve_sdk.outputs.run_id }}" >> "$GITHUB_ENV"
+          echo "SDK_HEAD_SHA=${{ steps.resolve_sdk.outputs.head_sha }}" >> "$GITHUB_ENV"
+
+      - name: Download HelpBotSDK.xcframework artifact
         uses: dawidd6/action-download-artifact@v3
         with:
-          run_id: ${{ github.event.workflow_run.id }}
-          name: HelpBotSDK-${{ github.event.workflow_run.head_sha }}
+          run_id: ${{ env.SDK_RUN_ID }}
+          name: HelpBotSDK-${{ env.SDK_HEAD_SHA }}
           path: SDK/iOS/build/_sdk_artifact
 
       - name: Prepare HelpBotSDK.xcframework (unzip)
-        if: ${{ github.event_name == 'workflow_run' }}
         working-directory: SDK/iOS
         run: |
           set -euo pipefail
@@ -65,7 +102,6 @@ jobs:
           test -d ./HelpBotSDK.xcframework
 
       - name: Verify HelpBotSDK.xcframework structure (must be importable)
-        if: ${{ github.event_name == 'workflow_run' }}
         working-directory: SDK/iOS
         run: |
           set -euo pipefail
@@ -79,14 +115,6 @@ jobs:
           test -f ./HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers/HelpBotSDK.h
           test -f ./HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers/HelpBotSDK.h
           echo "✅ HelpBotSDK.xcframework is ready at SDK/iOS/HelpBotSDK.xcframework"
-
-      - name: Prepare HelpBotSDK.xcframework (manual dispatch requires local xcframework)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        working-directory: SDK/iOS
-        run: |
-          set -euo pipefail
-          test -d ./HelpBotSDK.xcframework
-          echo "Using existing SDK/iOS/HelpBotSDK.xcframework (workflow_dispatch)."
 
       - name: Generate Xcode project (XcodeGen)
         working-directory: SDK/iOS/HelpBotDemo
