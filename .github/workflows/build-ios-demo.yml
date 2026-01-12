@@ -86,12 +86,21 @@ jobs:
           chmod +x ./build_demo.sh
           bash ./build_demo.sh
 
-      - name: Upload artifacts (demo archive + sdk)
+      - name: Upload artifacts (demo archive)
         uses: actions/upload-artifact@v4
         with:
           name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
           path: |
             SDK/iOS/build/HelpBotDemo.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload artifacts (sdk from workflow_run)
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotSDK-${{ github.event.workflow_run.head_sha }}
+          path: |
             SDK/iOS/build/_sdk_artifact/HelpBotSDK.xcframework.zip
             SDK/iOS/build/_sdk_artifact/build-report.txt
           if-no-files-found: error
