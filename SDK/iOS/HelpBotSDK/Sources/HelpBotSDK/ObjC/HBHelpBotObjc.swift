@@ -2,16 +2,44 @@ import Foundation
 import UIKit
 
 /**
- HelpBotSDK 的 Objective-C 友好封装（大厂 SDK 交付标准）。
+ HelpBotSDK 的 Objective-C 
  
  设计目标：
- - **宿主是 Objective-C 也能直接接入**（不需要写 Swift）。
- - 对外接口稳定：尽量使用 `NSString/NSDictionary/NSNumber/UIViewController` 等 ObjC 兼容类型。
- - 保持与 Swift API 一致：内部调用 `HelpBot` 的 Swift API。
+ - 宿主是 Objective-C 也能直接接入（不需要写 Swift）。
+ - 对外接口稳定：尽量使用NSString/NSDictionary/NSNumber/UIViewController等 ObjC 兼容类型。
+ - 保持与 Swift API 一致：内部调用HelpBot的 Swift API。
  
  注意：
- - 该类属于 SDK 的对外公开 API，会出现在 `HelpBotSDK-Swift.h` 中。
+ - 该类属于SDK的对外公开API，会出现在 HelpBotSDK-Swift.h 中。
  */
+
+/**
+ 初始化回调（ObjC 可见）
+
+ ⚠️ 重要：
+ - `@objc protocol` **不能嵌套在类型内部**，否则在某些编译模式/CI 下会报：
+   `protocol ... cannot be nested inside another declaration`
+ - 因此必须放在文件顶层。
+ */
+@objc(HBHelpBotInitDelegate)
+public protocol HBHelpBotInitDelegate: NSObjectProtocol {
+    @objc optional func onInitStart()
+    @objc optional func onInitProgress(_ progress: Int, message: String)
+    @objc optional func onInitSuccess()
+    @objc optional func onInitFailure(_ errorCode: Int, message: String)
+}
+
+/**
+ 事件监听（ObjC 可见）
+ */
+@objc(HBHelpBotEventsDelegate)
+public protocol HBHelpBotEventsDelegate: NSObjectProtocol {
+    /// Web -> Native 事件透传
+    @objc optional func onEventOccurred(_ eventName: String, data: NSDictionary?)
+    /// 认证失败原因（原始字符串枚举值，例如 "TOKEN_EXPIRED"）
+    @objc optional func onUserAuthenticationFailure(_ reason: String)
+}
+
 @objcMembers
 public final class HBHelpBot: NSObject {
     private static let tag = "HBHelpBot"
@@ -20,32 +48,8 @@ public final class HBHelpBot: NSObject {
         super.init()
     }
 
-    // MARK: - Types
-
     /**
-     Objective-C 初始化回调（可选实现）。
-     */
-    @objc(HBHelpBotInitDelegate)
-    public protocol InitDelegate: NSObjectProtocol {
-        @objc optional func onInitStart()
-        @objc optional func onInitProgress(_ progress: Int, message: String)
-        @objc optional func onInitSuccess()
-        @objc optional func onInitFailure(_ errorCode: Int, message: String)
-    }
-
-    /**
-     Objective-C 事件监听（可选实现）。
-     */
-    @objc(HBHelpBotEventsDelegate)
-    public protocol EventsDelegate: NSObjectProtocol {
-        /// Web -> Native 事件透传
-        @objc optional func onEventOccurred(_ eventName: String, data: NSDictionary?)
-        /// 认证失败原因（原始字符串枚举值，例如 "TOKEN_EXPIRED"）
-        @objc optional func onUserAuthenticationFailure(_ reason: String)
-    }
-
-    /**
-     Objective-C 结果对象（避免泛型，便于 ObjC 使用）。
+     结果对象
      */
     @objc(HBHelpBotResult)
     public final class Result: NSObject {
@@ -61,12 +65,10 @@ public final class HBHelpBot: NSObject {
         }
     }
 
-    // MARK: - Internal adapters
-
     private final class InitCallbackAdapter: HelpBotInitCallback {
-        weak var delegate: InitDelegate?
+        weak var delegate: HBHelpBotInitDelegate?
 
-        init(delegate: InitDelegate?) {
+        init(delegate: HBHelpBotInitDelegate?) {
             self.delegate = delegate
         }
 
@@ -88,9 +90,9 @@ public final class HBHelpBot: NSObject {
     }
 
     private final class EventsListenerAdapter: HelpBotEventsListener {
-        weak var delegate: EventsDelegate?
+        weak var delegate: HBHelpBotEventsDelegate?
 
-        init(delegate: EventsDelegate?) {
+        init(delegate: HBHelpBotEventsDelegate?) {
             self.delegate = delegate
         }
 
@@ -103,22 +105,20 @@ public final class HBHelpBot: NSObject {
         }
     }
 
-    // MARK: - Public APIs (ObjC)
 
     /**
-     获取 SDK 版本号。
+     获取 SDK 版本号
      */
     @objc public static func sdkVersion() -> String {
         return HelpBot.getSDKVersion()
     }
 
     /**
-     设置事件监听（ObjC）。
-     
-     - 说明：底层仍为 Swift `HelpBotEventsListener`，这里做适配。
+     设置事件监听
+     - 说明：底层仍为 Swift HelpBotEventsListener，这里做适配
      - 参数传 nil 表示移除监听。
      */
-    @objc public static func setEventsDelegate(_ delegate: EventsDelegate?) {
+    @objc public static func setEventsDelegate(_ delegate: HBHelpBotEventsDelegate?) {
         if let d = delegate {
             HelpBot.setEventsListener(EventsListenerAdapter(delegate: d))
         } else {
@@ -127,7 +127,7 @@ public final class HBHelpBot: NSObject {
     }
 
     /**
-     初始化 SDK（ObjC 友好版本）。
+     初始化 SDK
      - Parameters:
        - channelId: 渠道标识
        - domain: API 域名（建议 https）
@@ -138,21 +138,18 @@ public final class HBHelpBot: NSObject {
         channelId: String,
         domain: String,
         configMap: NSDictionary?,
-        delegate: InitDelegate?
+        delegate: HBHelpBotInitDelegate?
     ) {
-        do {
-            let swiftMap = configMap as? [String: Any]
-            let cb = InitCallbackAdapter(delegate: delegate)
-            HelpBot.install(channelId: channelId, domain: domain, configMap: swiftMap, callback: cb)
-        } catch {
-            // Swift 的 install 本身已做 try-catch，这里再兜底一次，保证 ObjC 不崩溃。
-            HBlogger.e(tag, "install 异常: \(error.localizedDescription)", nil)
-            delegate?.onInitFailure?(HelpBotErrorCode.internalError.rawValue, message: "install 异常: \(error.localizedDescription)")
-        }
+        // 说明：
+        // - Swift 的 `HelpBot.install` 为非 throwing API，这里不应使用 do/catch（会导致不可达 catch 告警）。
+        // - 若底层发生异常崩溃（例如 fatalError），Swift 也无法 catch；因此这里保持直接调用并交由 SDK 内部处理失败回调。
+        let swiftMap = configMap as? [String: Any]
+        let cb = InitCallbackAdapter(delegate: delegate)
+        HelpBot.install(channelId: channelId, domain: domain, configMap: swiftMap, callback: cb)
     }
 
     /**
-     登录（ObjC 友好版本）。
+     登录
      - Parameters:
        - token: JWT token
        - completion: 完成回调（可传 nil）
@@ -168,21 +165,21 @@ public final class HBHelpBot: NSObject {
     }
 
     /**
-     打开会话窗口（ObjC 友好版本）。
+     打开会话窗口
      */
     @objc public static func showConversation(from viewController: UIViewController) {
         HelpBot.showConversation(from: viewController)
     }
 
     /**
-     隐藏会话窗口（ObjC 友好版本）。
+     隐藏会话窗口
      */
     @objc public static func hideConversation() {
         HelpBot.hideConversation()
     }
 
     /**
-     退出登录（ObjC 友好版本）。
+     退出登录
      */
     @objc public static func logout(_ completion: ((Result) -> Void)?) {
         HelpBot.logout { r in
@@ -195,7 +192,7 @@ public final class HBHelpBot: NSObject {
     }
 
     /**
-     销毁 SDK（ObjC 友好版本）。
+     销毁 SDK
      */
     @objc public static func destroy(_ completion: ((Result) -> Void)?) {
         HelpBot.destroy { r in
@@ -208,7 +205,7 @@ public final class HBHelpBot: NSObject {
     }
 
     /**
-     上报系统信息到服务器（ObjC 友好版本）。
+     上报系统信息到服务器
      */
     @objc public static func reportSystemInfoToServer() -> Result {
         let r = HelpBot.reportSystemInfoToServer()
