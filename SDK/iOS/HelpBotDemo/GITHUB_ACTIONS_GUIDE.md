@@ -4,7 +4,7 @@
 
 iOS Demo 应用已配置 GitHub Actions 自动编译,支持:
 - ✅ XcodeGen 自动生成项目
-- ✅ Swift Package Manager 依赖管理
+- ✅ 使用 `HelpBotSDK.xcframework`（二进制交付形态）
 - ✅ 模拟器和真机编译
 - ✅ 自动上传编译产物
 
@@ -109,11 +109,9 @@ xcodegen generate
 ```
 根据 `project.yml` 生成 `HelpBotDemo.xcodeproj`
 
-### 步骤 3: 依赖解析
-```bash
-xcodebuild -resolvePackageDependencies
-```
-解析 Swift Package (HelpBotSDK)
+### 步骤 3: 准备 SDK 二进制（xcframework）
+Demo 必须通过 `SDK/iOS/HelpBotSDK.xcframework` 集成 SDK（禁止直接引用源码/Swift Package）。
+在 CI 中会先从 `SDK/iOS/HelpBotSDK` 源码构建出 `HelpBotSDK.xcframework`，再编译 Demo。
 
 ### 步骤 4: 编译模拟器版本
 ```bash
@@ -165,13 +163,13 @@ CODE_SIGNING_ALLOWED=NO
 
 **解决**: 检查 Homebrew 是否正常工作
 
-### 编译失败: Package resolution failed
+### 编译失败: HelpBotSDK.xcframework not found / import 失败
 
-**原因**: Swift Package 依赖解析失败
+**原因**: SDK 二进制产物不存在或未正确嵌入
 
 **解决**: 
-1. 检查 `project.yml` 中的 package 路径
-2. 确认 HelpBotSDK 存在于 `../HelpBotSDK`
+1. 确认 `SDK/iOS/HelpBotSDK.xcframework` 存在
+2. 确认 Target → General 中 `HelpBotSDK.xcframework` 为 **Embed & Sign**
 
 ### 编译失败: Build input file cannot be found
 
@@ -182,9 +180,9 @@ CODE_SIGNING_ALLOWED=NO
 ## 📚 相关文档
 
 - [XcodeGen 文档](https://github.com/yonaskolb/XcodeGen)
-- [GitHub Actions 工作流](file:///d:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/.github/workflows/build-ios-demo.yml)
-- [Demo README](file:///d:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/SDK/iOS/HelpBotDemo/README.md)
-- [project.yml 配置](file:///d:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/SDK/iOS/HelpBotDemo/project.yml)
+- [GitHub Actions 工作流](../../../.github/workflows/build-ios-demo.yml)
+- [Demo README](./README.md)
+- [project.yml 配置](./project.yml)
 
 ## 🎯 下一步
 

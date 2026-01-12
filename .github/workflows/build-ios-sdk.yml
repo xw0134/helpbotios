@@ -1,12 +1,12 @@
-name: Build iOS SDK (XCFramework)
+name: Build iOS SDK
 
 on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: "Build configuration"
+        description: Build configuration (Debug/Release)
         required: true
-        default: "Release"
+        default: Release
         type: choice
         options:
           - Debug
@@ -15,106 +15,64 @@ on:
     branches:
       - main
       - develop
-      - "ci/**"
     paths:
       - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh"
+      - "SDK/iOS/build_local.sh"
       - ".github/workflows/build-ios-sdk.yml"
   pull_request:
     paths:
       - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh"
+      - "SDK/iOS/build_local.sh"
       - ".github/workflows/build-ios-sdk.yml"
 
 jobs:
-  build:
+  build-ios-sdk:
     runs-on: macos-14
     timeout-minutes: 30
+    permissions:
+      contents: read
     env:
       CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+
     steps:
-      - name: 📥 检出代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🔍 显示环境信息
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "15.2"
+
+      - name: Show versions
         run: |
+          set -euo pipefail
           sw_vers
           xcodebuild -version
           swift --version
 
-      - name: 🔨 编译并打包 XCFramework
+      - name: Verify build scripts (anti-cache / anti-old-commit)
         run: |
           set -euo pipefail
-          echo "构建 HelpBotSDK.xcframework（使用 packagePath 方式，避免 archive 产物缺失导致的组装失败）"
+          echo "GITHUB_SHA=${GITHUB_SHA}"
+          git rev-parse HEAD
+          echo "==== build_local.sh key lines (must contain DerivedData + tail -n 1 + '未找到 Swift Modules ...；请检查') ===="
+          sed -n '175,215p' SDK/iOS/build_local.sh
+          sed -n '270,330p' SDK/iOS/build_local.sh
+          sed -n '370,410p' SDK/iOS/build_local.sh
 
-          OUT_DIR="SDK/iOS/HelpBotSDK/build"
-          OUT_XCFRAMEWORK="${OUT_DIR}/HelpBotSDK.xcframework"
-          mkdir -p "${OUT_DIR}"
-
-          bash SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh "${OUT_XCFRAMEWORK}"
-
-          echo "打包 XCFramework..."
-          cd "${OUT_DIR}"
-          rm -f "HelpBotSDK.xcframework.zip"
-          zip -r "HelpBotSDK.xcframework.zip" "HelpBotSDK.xcframework"
-          cd -
-
-          echo "生成编译报告..."
-          REPORT_FILE="${OUT_DIR}/build-report.txt"
-          cat > "${REPORT_FILE}" << EOF
-          === HelpBot iOS SDK (XCFramework) 编译报告 ===
-
-          编译时间: $(date)
-          编译配置: ${CONFIGURATION}
-          Git Commit: ${{ github.sha }}
-          Git Branch: ${{ github.ref_name }}
-
-          === 环境信息 ===
-          $(sw_vers)
-
-          $(xcodebuild -version)
-
-          $(swift --version)
-          EOF
-          cat "${REPORT_FILE}"
-
-      - name: 🔍 验证 XCFramework 结构 (CI 层级)
+      - name: Build HelpBotSDK.xcframework
+        working-directory: SDK/iOS
         run: |
           set -euo pipefail
-          echo "=== 检查真机架构 Modules ==="
-          ls -R SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules
-          
-          echo "=== 检查模拟器架构 Modules ==="
-          ls -R SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Modules
-          
-          if [ ! -d "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule" ]; then
-            echo "❌ 错误: 找不到 swiftmodule 文件!"
-            exit 1
-          fi
+          chmod +x ./build_local.sh
+          bash ./build_local.sh
 
-          echo "=== 检查真机架构 Headers ==="
-          ls -la SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers
-          if ! find "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64/HelpBotSDK.framework/Headers" -maxdepth 1 -type f -name "*.h" | grep -q .; then
-            echo "❌ 错误: Headers 为空（真机）!"
-            exit 1
-          fi
-          echo "✅ 真机 Headers 校验通过"
-
-          echo "=== 检查模拟器架构 Headers ==="
-          ls -la SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers
-          if ! find "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework/ios-arm64_x86_64-simulator/HelpBotSDK.framework/Headers" -maxdepth 1 -type f -name "*.h" | grep -q .; then
-            echo "❌ 错误: Headers 为空（模拟器）!"
-            exit 1
-          fi
-          echo "✅ 模拟器 Headers 校验通过"
-
-          echo "✅ 结构校验通过"
-
-      - name: ⬆️ 上传产物
+      - name: Upload artifacts (xcframework + report)
         uses: actions/upload-artifact@v4
         with:
           name: HelpBotSDK-${{ env.CONFIGURATION }}-${{ github.sha }}
           path: |
-            SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework.zip
-            SDK/iOS/HelpBotSDK/build/build-report.txt
+            SDK/iOS/build/HelpBotSDK.xcframework.zip
+            SDK/iOS/build/build-report.txt
           if-no-files-found: error
+          retention-days: 30

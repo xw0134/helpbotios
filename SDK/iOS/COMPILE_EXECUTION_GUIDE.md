@@ -134,6 +134,25 @@ chmod +x ../build_local.sh
 ../build_local.sh
 ```
 
+## 发布工件结构要求（必须满足）
+
+发布给外部集成方的 iOS SDK 工件，必须是 **标准 `HelpBotSDK.framework`**（最终以 `HelpBotSDK.xcframework` 形式交付），并且满足：
+
+- `HelpBotSDK.framework/Modules/HelpBotSDK.swiftmodule/` 必须存在（可 `import HelpBotSDK`）
+- `HelpBotSDK.framework/Headers/` 必须存在，且至少包含一个 `.h`（用于 ObjC 兼容头/对齐外部工程引用习惯）
+
+## 推荐的构建方式（CI/Xcode 一致）
+
+为保证 `Modules`/`Headers` 结构稳定且可校验，仓库推荐使用构建脚本：
+
+```bash
+# 在 macOS 上执行（可选设置 CONFIGURATION=Release/Debug）
+export CONFIGURATION=Release
+bash SDK/Unity/iOSBuild/build_helpbot_sdk_xcframework.sh "SDK/iOS/HelpBotSDK/build/HelpBotSDK.xcframework"
+```
+
+该脚本会在打包前执行结构强校验：若 `Modules` 或 `Headers` 缺失/为空会直接失败，避免发布错误结构的工件。
+
 编译产物位于: `build/HelpBotSDK.xcframework`
 
 ---
@@ -185,6 +204,6 @@ A: 约 5-10 分钟,包括:
 
 ## 📚 相关文档
 
-- [GitHub Actions 详细指南](file:///d:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/SDK/iOS/GITHUB_ACTIONS_GUIDE.md)
-- [快速开始指南](file:///d:/xinhuo/HelpBotSdkDemo/HelpBotSdkDemo/SDK/iOS/QUICKSTART.md)
-- [配置总结](file:///C:/Users/admin/.gemini/antigravity/brain/94f0796d-373b-4775-b85c-bcf7cdd5811e/walkthrough.md)
+- [GitHub Actions 详细指南](./GITHUB_ACTIONS_GUIDE.md)
+- [快速开始指南](./QUICKSTART.md)
+- 配置总结（内部文档路径已移除，避免在仓库中出现本地绝对路径）
