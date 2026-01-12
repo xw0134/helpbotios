@@ -1,6 +1,11 @@
 name: Build iOS Demo
 
 on:
+  workflow_run:
+    workflows:
+      - Build iOS SDK
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       configuration:
@@ -11,34 +16,25 @@ on:
         options:
           - Debug
           - Release
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - "SDK/iOS/HelpBotDemo/**"
-      - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
-      - ".github/workflows/build-ios-demo.yml"
-  pull_request:
-    paths:
-      - "SDK/iOS/HelpBotDemo/**"
-      - "SDK/iOS/HelpBotSDK/**"
-      - "SDK/iOS/build_local.sh"
-      - ".github/workflows/build-ios-demo.yml"
 
 jobs:
   build-ios-demo:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-14
     timeout-minutes: 40
     permissions:
       contents: read
+      actions: read
     env:
       CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # workflow_run 事件下，默认 GITHUB_SHA 不是触发工作流的那个提交
+          # 必须显式 checkout 到 SDK workflow 对应的 head_sha，保证 Demo/SDK 对齐
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -51,25 +47,30 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           xcodegen --version
 
-      - name: Verify build scripts (anti-cache / anti-old-commit)
-        run: |
-          set -euo pipefail
-          echo "GITHUB_SHA=${GITHUB_SHA}"
-          git rev-parse HEAD
-          echo "==== build_local.sh key lines (must contain DerivedData + tail -n 1 + '未找到 Swift Modules ...；请检查') ===="
-          sed -n '175,215p' SDK/iOS/build_local.sh
-          sed -n '270,330p' SDK/iOS/build_local.sh
-          sed -n '370,410p' SDK/iOS/build_local.sh
+      - name: Download HelpBotSDK.xcframework artifact (from SDK workflow run)
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ github.event.workflow_run.id }}
+          name: HelpBotSDK-${{ github.event.workflow_run.head_sha }}
+          path: SDK/iOS/build/_sdk_artifact
 
-      - name: Build HelpBotSDK.xcframework (binary delivery)
+      - name: Prepare HelpBotSDK.xcframework (unzip)
+        if: ${{ github.event_name == 'workflow_run' }}
         working-directory: SDK/iOS
         run: |
           set -euo pipefail
-          chmod +x ./build_local.sh
-          bash ./build_local.sh
           rm -rf ./HelpBotSDK.xcframework
-          unzip -q ./build/HelpBotSDK.xcframework.zip
+          unzip -q ./build/_sdk_artifact/HelpBotSDK.xcframework.zip -d .
           test -d ./HelpBotSDK.xcframework
+
+      - name: Prepare HelpBotSDK.xcframework (manual dispatch requires local xcframework)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        working-directory: SDK/iOS
+        run: |
+          set -euo pipefail
+          test -d ./HelpBotSDK.xcframework
+          echo "Using existing SDK/iOS/HelpBotSDK.xcframework (workflow_dispatch)."
 
       - name: Generate Xcode project (XcodeGen)
         working-directory: SDK/iOS/HelpBotDemo
@@ -78,39 +79,12 @@ jobs:
           xcodegen generate
           test -d ./HelpBotDemo.xcodeproj
 
-      - name: Build simulator (compile verification)
-        working-directory: SDK/iOS/HelpBotDemo
+      - name: Build Demo (simulator + archive)
+        working-directory: SDK/iOS
         run: |
           set -euo pipefail
-          xcodebuild build \
-            -project HelpBotDemo.xcodeproj \
-            -scheme HelpBotDemo \
-            -configuration "${CONFIGURATION}" \
-            -destination "platform=iOS Simulator,name=iPhone 15" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
-
-      - name: Archive device (compile verification)
-        working-directory: SDK/iOS/HelpBotDemo
-        run: |
-          set -euo pipefail
-          xcodebuild archive \
-            -project HelpBotDemo.xcodeproj \
-            -scheme HelpBotDemo \
-            -configuration "${CONFIGURATION}" \
-            -destination "generic/platform=iOS" \
-            -archivePath ../build/HelpBotDemo.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
-
-      - name: Pack archive
-        run: |
-          set -euo pipefail
-          cd SDK/iOS/build
-          rm -f HelpBotDemo.xcarchive.zip || true
-          zip -qr HelpBotDemo.xcarchive.zip HelpBotDemo.xcarchive
+          chmod +x ./build_demo.sh
+          bash ./build_demo.sh
 
       - name: Upload artifacts (demo archive + sdk)
         uses: actions/upload-artifact@v4
@@ -118,7 +92,7 @@ jobs:
           name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
           path: |
             SDK/iOS/build/HelpBotDemo.xcarchive.zip
-            SDK/iOS/build/HelpBotSDK.xcframework.zip
-            SDK/iOS/build/build-report.txt
+            SDK/iOS/build/_sdk_artifact/HelpBotSDK.xcframework.zip
+            SDK/iOS/build/_sdk_artifact/build-report.txt
           if-no-files-found: error
           retention-days: 30
