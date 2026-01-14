@@ -1,6 +1,95 @@
 name: Build iOS Demo
 
 on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Build configuration"
+        required: true
+        default: "Debug"
+        type: choice
+        options:
+          - Debug
+          - Release
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_sdk.sh"
+      - "SDK/iOS/build_demo.sh"
+      - ".github/workflows/build-ios-demo.yml"
+  pull_request:
+    paths:
+      - "SDK/iOS/HelpBotDemo/**"
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_sdk.sh"
+      - "SDK/iOS/build_demo.sh"
+      - ".github/workflows/build-ios-demo.yml"
+
+concurrency:
+  group: ios-demo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Demo (${{ github.event.inputs.configuration || 'Debug' }})
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    env:
+      CONFIGURATION: ${{ github.event.inputs.configuration || 'Debug' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Print environment
+        run: |
+          set -euo pipefail
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install xcpretty (optional)
+        run: |
+          set -euo pipefail
+          sudo gem install xcpretty --no-document || true
+
+      - name: Build HelpBotSDK.xcframework (for Demo)
+        run: |
+          set -euo pipefail
+          chmod +x SDK/iOS/build_sdk.sh
+          bash SDK/iOS/build_sdk.sh
+
+          # Demo 构建脚本要求 SDK/iOS/HelpBotSDK.xcframework 存在（禁止直接引用源码包）
+          rm -rf SDK/iOS/HelpBotSDK.xcframework
+          cp -R SDK/iOS/build/HelpBotSDK.xcframework SDK/iOS/HelpBotSDK.xcframework
+
+      - name: Build Demo (xcarchive + unsigned ipa)
+        run: |
+          set -euo pipefail
+          chmod +x SDK/iOS/build_demo.sh
+          bash SDK/iOS/build_demo.sh
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotDemo-${{ env.CONFIGURATION }}-${{ github.sha }}
+          path: |
+            SDK/iOS/build/HelpBotDemo.xcarchive.zip
+            SDK/iOS/build/HelpBotDemo-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+name: Build iOS Demo
+
+on:
   workflow_run:
     workflows:
       - Build iOS SDK

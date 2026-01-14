@@ -1,3 +1,78 @@
+name: Build iOS Universal SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Build configuration"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Debug
+          - Release
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_sdk.sh"
+      - ".github/workflows/build-ios-universal-sdk.yml"
+  pull_request:
+    paths:
+      - "SDK/iOS/HelpBotSDK/**"
+      - "SDK/iOS/build_sdk.sh"
+      - ".github/workflows/build-ios-universal-sdk.yml"
+
+concurrency:
+  group: ios-universal-sdk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Universal (${{ github.event.inputs.configuration || 'Release' }})
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    env:
+      CONFIGURATION: ${{ github.event.inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Print environment
+        run: |
+          set -euo pipefail
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install xcpretty (optional)
+        run: |
+          set -euo pipefail
+          sudo gem install xcpretty --no-document || true
+
+      - name: Build HelpBotSDK.xcframework
+        run: |
+          set -euo pipefail
+          chmod +x SDK/iOS/build_sdk.sh
+          bash SDK/iOS/build_sdk.sh
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelpBotSDK-Universal-${{ env.CONFIGURATION }}-${{ github.sha }}
+          path: |
+            SDK/iOS/build/HelpBotSDK.xcframework.zip
+            SDK/iOS/build/build-report.txt
+          if-no-files-found: error
+          retention-days: 30
+
 name: Build iOS Universal SDK (HelpBotSDK + HelpBotBridge)
 
 on:
