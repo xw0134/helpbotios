@@ -63,16 +63,17 @@ jobs:
           xcodegen --version
 
       - name: 🔨 构建 HelpBotSDK.xcframework（从源码）
+        working-directory: SDK/iOS
         run: |
           set -euo pipefail
           # 使用 iOS SDK 标准构建脚本
-          chmod +x SDK/iOS/build_sdk.sh
-          bash SDK/iOS/build_sdk.sh
+          chmod +x ./build_sdk.sh
+          ./build_sdk.sh
           
           # 准备产物目录并将构建出的 XCFramework 复制到该位置，供后续桥接库构建使用
-          OUT_DIR="SDK/Artifacts/iOS"
+          OUT_DIR="../../Artifacts/iOS"
           mkdir -p "${OUT_DIR}"
-          cp -R SDK/iOS/build/HelpBotSDK.xcframework "${OUT_DIR}/HelpBotSDK.xcframework"
+          cp -R build/HelpBotSDK.xcframework "${OUT_DIR}/HelpBotSDK.xcframework"
 
       - name: 🔨 构建 HelpBotBridge.xcframework（通用 C-ABI 桥接库）
         run: |
