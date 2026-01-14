@@ -1201,8 +1201,14 @@ public final class HelpBot {
 
         if showTitleBar {
             let nav = UINavigationController(rootViewController: vc)
+            // 重要：iOS 13+（尤其 iPad）默认 modal 呈现可能是 pageSheet/formSheet，导致宽度不满屏，
+            // 从而出现“像弹窗一样”的视觉效果与横向滚动条问题。这里强制全屏对齐 Android 体验。
+            nav.modalPresentationStyle = .fullScreen
+            nav.modalPresentationCapturesStatusBarAppearance = true
             viewController.present(nav, animated: true)
         } else {
+            vc.modalPresentationStyle = .fullScreen
+            vc.modalPresentationCapturesStatusBarAppearance = true
             viewController.present(vc, animated: true)
         }
     }

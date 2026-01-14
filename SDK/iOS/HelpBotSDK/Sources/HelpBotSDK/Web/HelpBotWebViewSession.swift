@@ -129,9 +129,15 @@ final class HelpBotWebViewSession: NSObject {
             self.attachedViewController = viewController
             self.attachedContainerView = containerView
             webView.removeFromSuperview()
-            webView.frame = containerView.bounds
-            webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            // 关键：使用 AutoLayout 约束全宽全高，避免 frame/导航栏/旋转导致的裁剪与横向滚动条。
+            webView.translatesAutoresizingMaskIntoConstraints = false
             containerView.addSubview(webView)
+            NSLayoutConstraint.activate([
+                webView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+                webView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+                webView.topAnchor.constraint(equalTo: containerView.topAnchor),
+                webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            ])
             self.tryOpenConversationIfPossible()
         }
     }
@@ -508,6 +514,13 @@ final class HelpBotWebViewSession: NSObject {
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsLinkPreview = false
+        // 对齐 Android “无横向滚动条”的体验：尽量禁止横向回弹/指示器（真正避免横向滚动还需要 Web 侧 viewport/CSS 兜底，见注入脚本）
+        wv.scrollView.showsHorizontalScrollIndicator = false
+        wv.scrollView.alwaysBounceHorizontal = false
+        if #available(iOS 11.0, *) {
+            // 避免系统自动 inset 叠加导致“看起来被裁剪/留白”
+            wv.scrollView.contentInsetAdjustmentBehavior = .never
+        }
         if #available(iOS 16.4, *) {
             wv.isInspectable = false
         }

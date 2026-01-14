@@ -60,6 +60,16 @@ enum HelpBotWebViewHelper {
             forMainFrameOnly: true
         ))
 
+        // WebView UI 兜底（对齐 Android showConversation：全宽、避免水平滚动条、避免裁剪）
+        // 说明：
+        // - WebChat 页面为远端内容，理论上应自行提供正确的 viewport
+        // - 但为满足 SDK 交付稳定性，这里做“非侵入式”兜底：仅处理 overflow-x 与 viewport 缺失场景
+        controller.addUserScript(WKUserScript(
+            source: buildViewportAndNoHorizontalScrollInjectionJs(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
+
         config.userContentController = controller
 
         // JS 必须开启（Web SDK 核心依赖）
@@ -144,6 +154,44 @@ enum HelpBotWebViewHelper {
                 }catch(e){}
               }
             };
+          }catch(e){}
+        })();
+        """
+    }
+
+    /**
+     Web 页面自适应兜底脚本：
+     - 强制隐藏水平溢出（overflow-x: hidden）
+     - 确保存在 viewport（缺失才补）
+     - 不修改业务 DOM 结构，避免影响功能
+     */
+    private static func buildViewportAndNoHorizontalScrollInjectionJs() -> String {
+        return """
+        (function(){
+          try{
+            // 1) 确保 viewport 存在（缺失才创建）
+            var head = document.head || document.getElementsByTagName('head')[0];
+            if(head){
+              var vp = head.querySelector('meta[name="viewport"]');
+              if(!vp){
+                vp = document.createElement('meta');
+                vp.setAttribute('name','viewport');
+                vp.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+                head.appendChild(vp);
+              }
+            }
+
+            // 2) 禁止水平滚动条（不影响垂直滚动）
+            var html = document.documentElement;
+            var body = document.body;
+            if(html){
+              html.style.overflowX = 'hidden';
+              html.style.width = '100%';
+            }
+            if(body){
+              body.style.overflowX = 'hidden';
+              body.style.width = '100%';
+            }
           }catch(e){}
         })();
         """

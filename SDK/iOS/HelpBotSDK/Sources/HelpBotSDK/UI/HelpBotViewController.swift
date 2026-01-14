@@ -20,6 +20,8 @@ final class HelpBotViewController: UIViewController {
         self.showTitleBar = showTitleBar
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
+        // 作为 SDK 会话页，避免误触下拉导致半屏/裁剪（对齐 Android：非弹窗）
+        isModalInPresentation = true
     }
 
     required init?(coder: NSCoder) {
@@ -35,9 +37,17 @@ final class HelpBotViewController: UIViewController {
         } else {
             view.backgroundColor = .white
         }
-        containerView.frame = view.bounds
-        containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        // 说明：
+        // - 必须“全宽”等于屏幕宽度，避免 iPad/横屏 safeArea 左右 inset 造成 WebView 宽度不足
+        // - 垂直方向尊重 safeArea，避免导航栏/刘海/底部 Home Indicator 造成 WebView 内容被遮挡（看起来像裁剪）
+        containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            containerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+        ])
 
         if showTitleBar {
             navigationItem.title = "HelpBot"
