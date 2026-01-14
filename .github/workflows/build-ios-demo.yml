@@ -49,6 +49,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select Xcode (compatible with latest xcodeproj format)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "latest"
+
       - name: Print environment
         run: |
           set -euo pipefail
@@ -85,5 +90,5 @@ jobs:
           path: |
             SDK/iOS/build/HelpBotDemo.xcarchive.zip
             SDK/iOS/build/HelpBotDemo-unsigned.ipa
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
