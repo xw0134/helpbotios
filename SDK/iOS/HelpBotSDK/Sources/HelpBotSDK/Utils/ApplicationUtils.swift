@@ -161,6 +161,56 @@ public final class ApplicationUtils {
     }
     
     /**
+     获取“宿主导航栈”（对齐 Android：像打开一个页面，而不是弹窗）。
+     
+     说明：
+     - 宿主传入的 VC 可能是：`UINavigationController` / `UITabBarController` / 普通 VC / 多层容器。
+     - 仅使用 `viewController.navigationController` 在很多场景会拿不到 nav（例如传入的本身就是 UINavigationController）。
+     - 此方法会尽量从容器中解析出可用的 `UINavigationController`，用于 `push` 展示。
+     
+     - Parameter viewController: 任意 UIViewController（可为 nil）
+     - Returns: 可用的 UINavigationController（若无则返回 nil）
+     */
+    public static func getHostNavigationController(from viewController: UIViewController?) -> UINavigationController? {
+        guard let vc = viewController else { return nil }
+        var visited = Set<ObjectIdentifier>()
+        return resolveNavigationController(from: vc, visited: &visited)
+    }
+    
+    private static func resolveNavigationController(
+        from viewController: UIViewController,
+        visited: inout Set<ObjectIdentifier>
+    ) -> UINavigationController? {
+        let oid = ObjectIdentifier(viewController)
+        if visited.contains(oid) { return nil }
+        visited.insert(oid)
+        
+        // 1) 自身就是 UINavigationController
+        if let nav = viewController as? UINavigationController { return nav }
+        
+        // 2) 普通 VC 所属的导航栈
+        if let nav = viewController.navigationController { return nav }
+        
+        // 3) Tab 容器：优先选中项
+        if let tab = viewController as? UITabBarController, let selected = tab.selectedViewController {
+            if let nav = resolveNavigationController(from: selected, visited: &visited) { return nav }
+        }
+        
+        // 4) 已 present 的 VC（顶层优先）
+        if let presented = viewController.presentedViewController {
+            if let nav = resolveNavigationController(from: presented, visited: &visited) { return nav }
+        }
+        
+        // 5) 子控制器兜底（部分自定义容器）
+        // 说明：按 reverse 取最“上层”的 child，尽量贴近用户看到的界面。
+        for child in viewController.children.reversed() {
+            if let nav = resolveNavigationController(from: child, visited: &visited) { return nav }
+        }
+        
+        return nil
+    }
+    
+    /**
      在主线程执行
      
      - Parameter block: 要执行的代码块

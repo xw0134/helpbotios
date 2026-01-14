@@ -129,15 +129,26 @@ final class HelpBotWebViewSession: NSObject {
             self.attachedViewController = viewController
             self.attachedContainerView = containerView
             webView.removeFromSuperview()
-            // 关键：使用 AutoLayout 约束全宽全高，避免 frame/导航栏/旋转导致的裁剪与横向滚动条。
-            webView.translatesAutoresizingMaskIntoConstraints = false
+            
+            // 再次加固：防止宿主/系统在某些场景重置 scrollView 属性，导致出现“水平滚动条/横向弹性”。
+            // 目标：
+            // - 禁止原生横向指示器/横向回弹（避免被误判为“原生 UI 出现水平滚动条”）
+            // - 不裁剪 WebView（内容宽度由 Web 侧控制，SDK 不做强裁剪）
+            let sv = webView.scrollView
+            sv.showsHorizontalScrollIndicator = false
+            sv.alwaysBounceHorizontal = false
+            sv.isDirectionalLockEnabled = true
+            sv.contentInset = .zero
+            sv.scrollIndicatorInsets = .zero
+            if #available(iOS 11.0, *) {
+                sv.contentInsetAdjustmentBehavior = .never
+            }
+            containerView.clipsToBounds = true
+            webView.clipsToBounds = true
+            
+            webView.frame = containerView.bounds
+            webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             containerView.addSubview(webView)
-            NSLayoutConstraint.activate([
-                webView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-                webView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-                webView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                webView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-            ])
             self.tryOpenConversationIfPossible()
         }
     }
@@ -514,12 +525,15 @@ final class HelpBotWebViewSession: NSObject {
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsLinkPreview = false
-        // 对齐 Android “无横向滚动条”的体验：尽量禁止横向回弹/指示器（真正避免横向滚动还需要 Web 侧 viewport/CSS 兜底，见注入脚本）
-        wv.scrollView.showsHorizontalScrollIndicator = false
-        wv.scrollView.alwaysBounceHorizontal = false
+        // 禁止横向滚动条（原生 UIScrollView 指示器），避免出现“水平滚动条”影响观感
+        // 注意：这里只禁止横向指示器/横向弹性，不裁剪 WebView 本身，避免内容被误裁剪。
+        let sv = wv.scrollView
+        sv.showsHorizontalScrollIndicator = false
+        sv.alwaysBounceHorizontal = false
+        sv.isDirectionalLockEnabled = true
         if #available(iOS 11.0, *) {
-            // 避免系统自动 inset 叠加导致“看起来被裁剪/留白”
-            wv.scrollView.contentInsetAdjustmentBehavior = .never
+            // 由外层 VC 自己做 safeArea 约束；WebView 内部不额外调整 inset，避免出现奇怪的横向偏移/滚动条
+            sv.contentInsetAdjustmentBehavior = .never
         }
         if #available(iOS 16.4, *) {
             wv.isInspectable = false

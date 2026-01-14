@@ -328,6 +328,23 @@ public final class HelpBot {
         }
         return .success()
     }
+    
+    /**
+     打开会话窗口（推荐，无需传入 ViewController）。
+     
+     Android 对齐：
+     - Android 侧通常无需传入 Activity，SDK 会自行获取当前可展示页面并“像打开一个页面一样”展示。
+     - iOS 侧同样提供该无参接口：内部自动解析顶层 VC，并优先使用导航栈 `push`，避免 iOS 的 modal sheet “弹窗感”。
+     
+     - Returns: 结果（成功表示已触发展示/或已入队等待 install/login 完成）
+     */
+    @discardableResult
+    public static func showConversation() -> HelpBotResult<Void> {
+        guard let top = ApplicationUtils.getTopViewController() else {
+            return .failure(.internalError, "无法获取顶层 ViewController")
+        }
+        return showConversation(from: top)
+    }
 
     /// 隐藏对话窗口（不销毁会话）
     @discardableResult
@@ -337,9 +354,20 @@ public final class HelpBot {
                 wv.evaluateJavaScript(HelpBotJsCommand.buildClose(), completionHandler: nil)
             }
             if let vc = currentConversationController {
-                if let nav = vc.navigationController {
+                // 兼容两种展示方式：
+                // 1) push：应 pop
+                // 2) present：应 dismiss（可能包了一层 UINavigationController）
+                if vc.presentingViewController != nil {
+                    // vc 自身被 present
+                    vc.dismiss(animated: true)
+                } else if let nav = vc.navigationController, nav.presentingViewController != nil {
+                    // vc 在被 present 的 nav 里
                     nav.dismiss(animated: true)
+                } else if let nav = vc.navigationController, nav.viewControllers.contains(vc) {
+                    // push 进宿主导航栈
+                    nav.popViewController(animated: true)
                 } else {
+                    // 兜底：尽力 dismiss
                     vc.dismiss(animated: true)
                 }
             }
@@ -676,46 +704,42 @@ public final class HelpBot {
      */
     public static func clearWebViewData(completion: ((HelpBotResult<Void>) -> Void)? = nil) {
         DispatchQueue.main.async {
-            do {
-                let hosts = Self.getWebChatHosts()
-                let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+            let hosts = Self.getWebChatHosts()
+            let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
 
-                // 需要同时清理 default 与 nonPersistent（隐私模式下通常为 nonPersistent，但清理操作无副作用）
-                let stores: [WKWebsiteDataStore] = {
-                    let d = WKWebsiteDataStore.default()
-                    let np = WKWebsiteDataStore.nonPersistent()
-                    if d === np { return [d] }
-                    return [d, np]
-                }()
+            // 需要同时清理 default 与 nonPersistent（隐私模式下通常为 nonPersistent，但清理操作无副作用）
+            let stores: [WKWebsiteDataStore] = {
+                let d = WKWebsiteDataStore.default()
+                let np = WKWebsiteDataStore.nonPersistent()
+                if d === np { return [d] }
+                return [d, np]
+            }()
 
-                let group = DispatchGroup()
+            let group = DispatchGroup()
 
-                for store in stores {
-                    group.enter()
-                    store.fetchDataRecords(ofTypes: dataTypes) { records in
-                        let targets: [WKWebsiteDataRecord]
-                        if hosts.isEmpty {
-                            targets = records
-                        } else {
-                            let hostSet = Set(hosts.map { $0.lowercased() })
-                            targets = records.filter { hostSet.contains($0.displayName.lowercased()) }
+            for store in stores {
+                group.enter()
+                store.fetchDataRecords(ofTypes: dataTypes) { records in
+                    let targets: [WKWebsiteDataRecord]
+                    if hosts.isEmpty {
+                        targets = records
+                    } else {
+                        let hostSet = Set(hosts.map { $0.lowercased() })
+                        targets = records.filter { hostSet.contains($0.displayName.lowercased()) }
+                    }
+
+                    store.removeData(ofTypes: dataTypes, for: targets) {
+                        // 清理完成后尽量 reload（与 Android 行为一致）
+                        if let wv = HelpBotWebViewSession.shared.webView {
+                            wv.reload()
                         }
-
-                        store.removeData(ofTypes: dataTypes, for: targets) {
-                            // 清理完成后尽量 reload（与 Android 行为一致）
-                            if let wv = HelpBotWebViewSession.shared.webView {
-                                wv.reload()
-                            }
-                            group.leave()
-                        }
+                        group.leave()
                     }
                 }
+            }
 
-                group.notify(queue: .main) {
-                    completion?(.success())
-                }
-            } catch {
-                completion?(.failure(.internalError, "清理 WebView 数据异常: \(error.localizedDescription)"))
+            group.notify(queue: .main) {
+                completion?(.success())
             }
         }
     }
@@ -1199,16 +1223,24 @@ public final class HelpBot {
         let vc = HelpBotViewController(showTitleBar: showTitleBar)
         currentConversationController = vc
 
+        // Android 对齐：优先 push（像打开一个页面），避免 iOS 默认 modal sheet 的“弹窗感”
+        // 说明：viewController 可能本身就是 UINavigationController/UITabBarController；因此必须做一次更稳的解析。
+        if let hostNav = ApplicationUtils.getHostNavigationController(from: viewController) {
+            HBlogger.i(tag, "showConversation: 使用 push 展示（对齐 Android 非弹窗体验）", nil)
+            hostNav.pushViewController(vc, animated: true)
+            return
+        }
+
+        // 无宿主导航栈：fallback 为全屏 present
+        HBlogger.i(tag, "showConversation: 无 navigationController，使用 fullScreen present", nil)
         if showTitleBar {
             let nav = UINavigationController(rootViewController: vc)
-            // 重要：iOS 13+（尤其 iPad）默认 modal 呈现可能是 pageSheet/formSheet，导致宽度不满屏，
-            // 从而出现“像弹窗一样”的视觉效果与横向滚动条问题。这里强制全屏对齐 Android 体验。
             nav.modalPresentationStyle = .fullScreen
-            nav.modalPresentationCapturesStatusBarAppearance = true
+            nav.modalTransitionStyle = .coverVertical
             viewController.present(nav, animated: true)
         } else {
             vc.modalPresentationStyle = .fullScreen
-            vc.modalPresentationCapturesStatusBarAppearance = true
+            vc.modalTransitionStyle = .coverVertical
             viewController.present(vc, animated: true)
         }
     }
