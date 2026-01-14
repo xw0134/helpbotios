@@ -15,6 +15,7 @@ on:
     branches:
       - main
       - develop
+      - "ci/**"
     paths:
       - "SDK/iOS/HelpBotSDK/**"
       - "SDK/iOS/build_sdk.sh"
