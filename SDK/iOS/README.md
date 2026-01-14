@@ -1,5 +1,9 @@
 # HelpBot iOS SDK (Swift) & Demo
 
+[![Build iOS SDK](https://github.com/xw0134/helpbotios/actions/workflows/build-ios-sdk.yml/badge.svg)](https://github.com/xw0134/helpbotios/actions/workflows/build-ios-sdk.yml)
+[![Build iOS Universal SDK](https://github.com/xw0134/helpbotios/actions/workflows/build-ios-universal-sdk.yml/badge.svg)](https://github.com/xw0134/helpbotios/actions/workflows/build-ios-universal-sdk.yml)
+
+
 ## 目录说明
 
 - `HelpBotSDK/`: iOS 版 HelpBot SDK (Swift Package),对齐 Android 版对外 API 与 WebSDK Bridge 协议。
@@ -25,6 +29,13 @@
 修改 `SDK/iOS/HelpBotSDK/**` 下的文件并推送到 `main` 或 `develop` 分支,会自动触发编译。
 
 📖 **详细说明**: 查看 [GitHub Actions 编译指南](GITHUB_ACTIONS_GUIDE.md)
+
+### 📊 编译追踪与监控
+
+- **实时状态**: 查看上方状态徽章。
+- **编译历史**: 访问 [GitHub Actions History](../../actions) 查看所有构建记录。
+- **详细报告**: 每个构建的 `Artifacts` 中都包含 `build-report.txt`，详细记录了编译环境、架构信息及产物路径。
+- **Job Summary**: 在 GitHub Actions 运行记录的摘要页面，可直接查看关键编译统计。
 
 ---
 
@@ -75,9 +86,9 @@ chmod +x generate_project.sh
 #### 方式一: 使用自动化脚本
 
 ```bash
-cd SDK/iOS/HelpBotSDK
-chmod +x ../build_local.sh
-../build_local.sh
+cd SDK/iOS
+chmod +x ./build_sdk.sh
+./build_sdk.sh
 ```
 
 编译产物位于 `build/HelpBotSDK.xcframework`
@@ -141,7 +152,8 @@ iOS/
 │   │   └── Info.plist
 │   └── README.md                  # Demo 使用文档
 ├── generate_project.sh            # 项目生成脚本
-├── build_local.sh                 # 本地编译脚本
+├── build_sdk.sh                   # SDK 本地编译脚本
+├── build_demo.sh                  # Demo 本地编译脚本（依赖 HelpBotSDK.xcframework）
 ├── README.md                      # 本文档
 ├── XCODEGEN_GUIDE.md             # XcodeGen 使用指南
 ├── GITHUB_ACTIONS_GUIDE.md       # GitHub Actions 指南
@@ -262,7 +274,8 @@ extension YourClass: HelpBotInitCallback {
 - [XcodeGen 使用指南](XCODEGEN_GUIDE.md) - XcodeGen 工具使用
 - [GitHub Actions 编译指南](GITHUB_ACTIONS_GUIDE.md) - 云端编译详细说明
 - [快速开始指南](QUICKSTART.md) - 快速上手指南
-- [本地编译脚本](build_local.sh) - macOS 本地编译自动化脚本
+- [SDK 本地编译脚本](build_sdk.sh) - macOS 本地编译自动化脚本
+- [Demo 本地编译脚本](build_demo.sh) - macOS 本地编译 Demo（产出 xcarchive/ipa）
 
 ---
 

@@ -26,13 +26,11 @@ on:
     paths:
       - "SDK/iOS/HelpBotSDK/**"
       - "SDK/iOS/build_sdk.sh"
-      - "SDK/iOS/build_local.sh"
       - ".github/workflows/build-ios-sdk.yml"
   pull_request:
     paths:
       - "SDK/iOS/HelpBotSDK/**"
       - "SDK/iOS/build_sdk.sh"
-      - "SDK/iOS/build_local.sh"
       - ".github/workflows/build-ios-sdk.yml"
 
 jobs:
@@ -86,3 +84,15 @@ jobs:
             SDK/iOS/build/build-report.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Generate Job Summary
+        if: always()
+        run: |
+          echo "## 🚀 HelpBot iOS SDK Build Summary" >> $GITHUB_STEP_SUMMARY
+          if [ -f SDK/iOS/build/build-report.txt ]; then
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat SDK/iOS/build/build-report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Build report not found!" >> $GITHUB_STEP_SUMMARY
+          fi

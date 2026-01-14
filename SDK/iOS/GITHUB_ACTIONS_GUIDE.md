@@ -120,7 +120,7 @@ HelpBotSDK.xcframework/
    ]
    ```
 
-## 📊 编译报告说明
+### 📊 编译报告与追踪说明
 
 `build-report.txt` 包含以下信息:
 - 编译时间和配置
@@ -128,6 +128,11 @@ HelpBotSDK.xcframework/
 - 系统和 Xcode 版本
 - XCFramework 架构详情
 - 文件大小统计
+
+#### 如何追踪编译状态
+1. **状态徽章**: 在 `SDK/iOS/README.md` 顶部可以看到实时的编译状态徽章。
+2. **作业摘要 (Job Summary)**: 在 GitHub Actions 运行记录的 `Summary` 页面中，可以直接看到关键的编译信息，无需下载报告即可快速确认构件情况。
+3. **Artifacts**: 所有的编译产物和详细报告都存储在 `Artifacts` 中，保留期为 30 天。
 
 示例:
 ```
