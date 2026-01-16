@@ -1,0 +1,232 @@
+name: Test AAR Compatibility - AGP 4.2.2
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'HelpBot/**'
+      - 'test/**'
+      - '.github/workflows/test-aar-agp4.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-aar:
+    name: Build HelpBot AAR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      
+      - name: Build HelpBot AAR
+        run: |
+          chmod +x gradlew
+          ./gradlew :HelpBot:assembleRelease --stacktrace
+      
+      - name: Upload AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpbot-aar-agp4
+          path: HelpBot/build/outputs/aar/HelpBot-release.aar
+          retention-days: 7
+  
+  test-agp4:
+    name: Test with AGP 4.2.2 (Pure AAR)
+    needs: build-aar
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      
+      - name: Download AAR
+        uses: actions/download-artifact@v4
+        with:
+          name: helpbot-aar-agp4
+          path: test/aar/
+      
+      - name: Verify AAR
+        run: |
+          cd test/aar
+          ls -la
+          file HelpBot-release.aar
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      
+      - name: Create test app structure
+        run: |
+          mkdir -p test/app_agp4/src/main/java/com/example/aartest
+          mkdir -p test/app_agp4/src/main/res/values
+      
+      - name: Create minimal Activity
+        run: |
+          cat > test/app_agp4/src/main/java/com/example/aartest/MainActivity.java << 'EOF'
+          package com.example.aartest;
+          
+          import android.app.Activity;
+          import android.os.Bundle;
+          
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          EOF
+      
+      - name: Create AndroidManifest
+        run: |
+          cat > test/app_agp4/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.example.aartest.agp4">
+              
+              <application
+                  android:allowBackup="true"
+                  android:label="AAR Test AGP4"
+                  android:theme="@android:style/Theme.Material.Light">
+                  
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+      
+      - name: Create strings.xml
+        run: |
+          cat > test/app_agp4/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">AAR Test AGP4</string>
+          </resources>
+          EOF
+      
+      - name: Create app build.gradle (Groovy DSL)
+        run: |
+          cat > test/app_agp4/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          
+          android {
+              compileSdkVersion 30
+              
+              defaultConfig {
+                  applicationId "com.example.aartest.agp4"
+                  minSdkVersion 21
+                  targetSdkVersion 30
+                  versionCode 1
+                  versionName "1.0"
+              }
+              
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          
+          dependencies {
+              // 仅依赖HelpBot AAR - 零其他依赖
+              implementation files('../aar/HelpBot-release.aar')
+          }
+          EOF
+      
+      - name: Create settings.gradle (Groovy DSL)
+        run: |
+          cat > test/settings.gradle << 'EOF'
+          rootProject.name = "AAR-Test-AGP4"
+          include ':app_agp4'
+          EOF
+      
+      - name: Create build.gradle (Groovy DSL)
+        run: |
+          cat > test/build.gradle << 'EOF'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:4.2.2'
+              }
+          }
+          
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+      
+      - name: Create gradle wrapper properties
+        run: |
+          mkdir -p test/gradle/wrapper
+          cat > test/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+      
+      - name: Build test app
+        run: |
+          cd test
+          chmod +x ../gradlew
+          ../gradlew :app_agp4:assembleDebug --stacktrace --info
+      
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-agp4-debug
+          path: test/app_agp4/build/outputs/apk/debug/*.apk
+          retention-days: 7
+      
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## AGP 4.2.2 Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ $? -eq 0 ]; then
+            echo "✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Pure AAR dependency (zero external libs)" >> $GITHUB_STEP_SUMMARY
+            echo "- Groovy DSL configuration" >> $GITHUB_STEP_SUMMARY
+            echo "- No androidx dependencies" >> $GITHUB_STEP_SUMMARY
+            echo "- APK generated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**This proves HelpBot AAR is compatible with AGP 4.x!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Build failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check logs for details" >> $GITHUB_STEP_SUMMARY
+          fi

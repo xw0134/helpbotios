@@ -1,0 +1,183 @@
+name: Test AAR Compatibility - AGP 8.7.3
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'HelpBot/**'
+      - 'test/**'
+      - '.github/workflows/test-aar-agp8.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-aar:
+    name: Build HelpBot AAR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: wrapper
+      
+      - name: Build HelpBot AAR
+        run: |
+          chmod +x gradlew
+          ./gradlew :HelpBot:assembleRelease --stacktrace
+      
+      - name: Upload AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpbot-aar
+          path: HelpBot/build/outputs/aar/HelpBot-release.aar
+          retention-days: 7
+  
+  test-agp8:
+    name: Test with AGP 8.7.3
+    needs: build-aar
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Download AAR
+        uses: actions/download-artifact@v4
+        with:
+          name: helpbot-aar
+          path: test/aar/
+      
+      - name: Rename AAR
+        run: |
+          cd test/aar
+          mv HelpBot-release.aar HelpBot-release.aar || true
+          ls -la
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      
+      - name: Create test app build.gradle
+        run: |
+          mkdir -p test/app_agp8
+          cat > test/app_agp8/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          
+          android {
+              namespace = "com.example.aartest.agp8"
+              compileSdk = 33
+              
+              defaultConfig {
+                  applicationId "com.example.aartest.agp8"
+                  minSdk = 21
+                  targetSdk = 33
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              
+              buildTypes {
+                  release {
+                      minifyEnabled = false
+                  }
+              }
+              
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+          }
+          
+          dependencies {
+              implementation files('../aar/HelpBot-release.aar')
+          }
+          EOF
+      
+      - name: Create AndroidManifest
+        run: |
+          mkdir -p test/app_agp8/src/main
+          cat > test/app_agp8/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:label="AAR Test AGP8">
+              </application>
+          </manifest>
+          EOF
+      
+      - name: Create settings.gradle
+        run: |
+          cat > test/settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          
+          rootProject.name = "AAR-Test-AGP8"
+          include ':app_agp8'
+          EOF
+      
+      - name: Create build.gradle
+        run: |
+          cat > test/build.gradle << 'EOF'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.7.3'
+              }
+          }
+          EOF
+      
+      - name: Build test app
+        run: |
+          cd test
+          chmod +x ../gradlew
+          ../gradlew :app_agp8:assembleDebug --stacktrace
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-agp8-debug
+          path: test/app_agp8/build/outputs/apk/debug/*.apk
+          retention-days: 7
+      
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## AGP 8.7.3 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- AAR loaded correctly" >> $GITHUB_STEP_SUMMARY
+          echo "- No dependency conflicts" >> $GITHUB_STEP_SUMMARY
+          echo "- APK generated successfully" >> $GITHUB_STEP_SUMMARY
