@@ -1,0 +1,136 @@
+name: Test AAR - AGP 6.5 (Latest AGP 6)
+
+on:
+  push:
+    branches: [ ci/ios-actions-gha ]
+  pull_request:
+    branches: [ ci/ios-actions-gha ]
+  workflow_dispatch:
+
+jobs:
+  test-agp-6-5:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 8
+      uses: actions/setup-java@v4
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      
+    - name: Build HelpBot AAR
+      run: |
+        cd HelpBotSdkDemo
+        ./gradlew :HelpBot:assembleRelease --stacktrace
+        
+    - name: Copy AAR to test directory
+      run: |
+        mkdir -p HelpBotSdkDemo/test/aar
+        cp HelpBotSdkDemo/HelpBot/build/outputs/aar/HelpBot-release.aar HelpBotSdkDemo/test/aar/
+        
+    - name: Configure test environment for AGP 6.5
+      run: |
+        cd HelpBotSdkDemo/test
+        
+        cat > build.gradle << 'EOF'
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:6.5.0'
+            }
+        }
+        
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        EOF
+        
+        cat > settings.gradle << 'EOF'
+        rootProject.name = "HelpBot-AAR-Test-AGP6.5"
+        include ':app2'
+        EOF
+        
+        cat > app2/build.gradle << 'EOF'
+        apply plugin: 'com.android.application'
+        
+        android {
+            compileSdkVersion 30
+            
+            defaultConfig {
+                applicationId "com.example.sdk_webview_test"
+                minSdkVersion 21
+                targetSdkVersion 30
+                versionCode 1
+                versionName "1.0"
+            }
+            
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                }
+            }
+            
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_1_8
+                targetCompatibility JavaVersion.VERSION_1_8
+            }
+        }
+        
+        dependencies {
+            implementation 'androidx.appcompat:appcompat:1.2.0'
+            implementation 'com.google.android.material:material:1.2.1'
+            implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
+            implementation 'com.squareup.okhttp3:okhttp:4.9.0'
+            implementation files('../aar/HelpBot-release.aar')
+        }
+        EOF
+        
+        mkdir -p app2/src/main
+        cat > app2/src/main/AndroidManifest.xml << 'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.example.sdk_webview_test">
+            
+            <uses-permission android:name="android.permission.INTERNET" />
+            
+            <application
+                android:allowBackup="true"
+                android:icon="@mipmap/ic_launcher"
+                android:label="HelpBot Test"
+                android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+                <activity android:name=".MainActivity">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+        
+        sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-6.7.1-bin.zip|' gradle/wrapper/gradle-wrapper.properties
+        
+    - name: Build test app with AAR (AGP 6.5)
+      run: |
+        cd HelpBotSdkDemo/test
+        ./gradlew :app2:assembleDebug --stacktrace
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app2-debug-agp6.5
+        path: HelpBotSdkDemo/test/app2/build/outputs/apk/debug/*.apk
+        retention-days: 30

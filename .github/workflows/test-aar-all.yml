@@ -1,0 +1,96 @@
+name: Test AAR - All Versions (Master)
+
+on:
+  push:
+    branches: [ ci/ios-actions-gha ]
+  pull_request:
+    branches: [ ci/ios-actions-gha ]
+  workflow_dispatch:
+
+jobs:
+  # 现代环境 - AGP 8.x
+  test-agp-8-7:
+    uses: ./.github/workflows/test-aar-agp8.7.yml
+    
+  test-agp-8-0:
+    uses: ./.github/workflows/test-aar-agp8.0.yml
+    
+  # 中期环境 - AGP 7.x
+  test-agp-7-4:
+    uses: ./.github/workflows/test-aar-agp7.4.yml
+    
+  test-agp-7-0:
+    uses: ./.github/workflows/test-aar-agp7.0.yml
+    
+  # 老项目 - AGP 6.x
+  test-agp-6-5:
+    uses: ./.github/workflows/test-aar-agp6.5.yml
+    
+  # 老项目 - AGP 4.x
+  test-agp-4-2:
+    uses: ./.github/workflows/test-aar-agp4.2.yml
+    
+  test-agp-4-0:
+    uses: ./.github/workflows/test-aar-agp4.0.yml
+    
+  # 十几年前的老项目 - AGP 3.x
+  test-agp-3-6:
+    uses: ./.github/workflows/test-aar-agp3.6.yml
+    
+  test-agp-3-5:
+    uses: ./.github/workflows/test-aar-agp3.5.yml
+    
+  # 生成测试报告
+  generate-report:
+    needs: [test-agp-8-7, test-agp-8-0, test-agp-7-4, test-agp-7-0, test-agp-6-5, test-agp-4-2, test-agp-4-0, test-agp-3-6, test-agp-3-5]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: apks
+        
+    - name: Generate compatibility report
+      run: |
+        cat > compatibility-report.md << 'EOF'
+        # HelpBot AAR 兼容性测试报告
+        
+        ## 测试概述
+        
+        本报告展示了 HelpBot SDK AAR 在不同 Android Gradle Plugin (AGP) 版本下的编译兼容性测试结果。
+        
+        ## 测试结果
+        
+        | AGP 版本 | Gradle 版本 | JDK 版本 | compileSdk | 测试结果 |
+        |---------|------------|---------|-----------|---------|
+        | 8.7.3   | 8.9        | 17      | 35        | ${{ needs.test-agp-8-7.result }} |
+        | 8.0.0   | 8.0        | 17      | 33        | ${{ needs.test-agp-8-0.result }} |
+        | 7.4.2   | 7.5        | 11      | 33        | ${{ needs.test-agp-7-4.result }} |
+        | 7.0.0   | 7.0.2      | 11      | 30        | ${{ needs.test-agp-7-0.result }} |
+        | 6.5.0   | 6.7.1      | 8       | 30        | ${{ needs.test-agp-6-5.result }} |
+        | 4.2.2   | 6.7.1      | 8       | 30        | ${{ needs.test-agp-4-2.result }} |
+        | 4.0.0   | 6.1.1      | 8       | 29        | ${{ needs.test-agp-4-0.result }} |
+        | 3.6.4   | 5.6.4      | 8       | 29        | ${{ needs.test-agp-3-6.result }} |
+        | 3.5.4   | 5.4.1      | 8       | 28        | ${{ needs.test-agp-3-5.result }} |
+        
+        ## 结论
+        
+        - ✅ **成功**: AAR 可以在该环境下正常编译和集成
+        - ❌ **失败**: AAR 在该环境下存在兼容性问题
+        - ⚠️ **跳过**: 测试被跳过
+        
+        ## 下载 APK
+        
+        所有成功编译的 APK 文件已作为 artifacts 上传,可在 Actions 页面下载。
+        EOF
+        
+        cat compatibility-report.md
+        
+    - name: Upload report
+      uses: actions/upload-artifact@v4
+      with:
+        name: compatibility-report
+        path: compatibility-report.md
+        retention-days: 90

@@ -1,0 +1,76 @@
+name: Test AAR - AGP 8.7 (Latest)
+
+on:
+  push:
+    branches: [ ci/ios-actions-gha ]
+  pull_request:
+    branches: [ ci/ios-actions-gha ]
+  workflow_dispatch:
+
+jobs:
+  test-agp-8-7:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      
+    - name: Build HelpBot AAR
+      run: |
+        cd HelpBotSdkDemo
+        ./gradlew :HelpBot:assembleRelease --stacktrace
+        
+    - name: Copy AAR to test directory
+      run: |
+        mkdir -p HelpBotSdkDemo/test/aar
+        cp HelpBotSdkDemo/HelpBot/build/outputs/aar/HelpBot-release.aar HelpBotSdkDemo/test/aar/
+        
+    - name: Configure test environment for AGP 8.7
+      run: |
+        cd HelpBotSdkDemo/test
+        
+        # Create settings.gradle for app2
+        cat > settings.gradle << 'EOF'
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        
+        rootProject.name = "HelpBot-AAR-Test-AGP8.7"
+        include ':app2'
+        EOF
+        
+        # Ensure Gradle wrapper uses Gradle 8.9
+        sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.9-bin.zip|' gradle/wrapper/gradle-wrapper.properties
+        
+    - name: Build test app with AAR (AGP 8.7)
+      run: |
+        cd HelpBotSdkDemo/test
+        ./gradlew :app2:assembleDebug --stacktrace
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app2-debug-agp8.7
+        path: HelpBotSdkDemo/test/app2/build/outputs/apk/debug/*.apk
+        retention-days: 30
