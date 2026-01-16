@@ -143,9 +143,13 @@ final class HelpBotViewController: UIViewController {
 }
 
 // MARK: - Recovery banner (friendly, cancellable, non-blocking)
+//
+// 说明：
+// - Recovery UI 只在 SDK 会话页内部展示
+// - 但触发来自 `HelpBotWebViewSession`（网络自愈），因此需要模块内可访问（internal）
 
-private extension HelpBotViewController {
-    func setupRecoveryBannerUi() {
+extension HelpBotViewController {
+    private func setupRecoveryBannerUi() {
         recoveryBanner.translatesAutoresizingMaskIntoConstraints = false
         recoveryBanner.isHidden = true
         recoveryBanner.backgroundColor = UIColor(white: 0.0, alpha: 0.55)
@@ -220,19 +224,20 @@ private extension HelpBotViewController {
         recoveryCloseButton.addTarget(self, action: #selector(onRecoveryCloseTapped), for: .touchUpInside)
     }
 
-    @objc func onRecoveryCancelTapped() {
+    @objc private func onRecoveryCancelTapped() {
         HelpBotWebViewSession.shared.cancelAutoRecovery()
         showRecoveryBanner(message: "已取消网络重建。你可以继续等待网络恢复，或点击“关闭”。", inProgress: false, allowRetry: false)
     }
 
-    @objc func onRecoveryRetryTapped() {
+    @objc private func onRecoveryRetryTapped() {
         HelpBotWebViewSession.shared.requestAutoRecoveryFromUser()
     }
 
-    @objc func onRecoveryCloseTapped() {
+    @objc private func onRecoveryCloseTapped() {
         _ = HelpBot.hideConversation()
     }
 
+    /// SDK 内部调用：显示自愈提示
     func showRecoveryBanner(message: String, inProgress: Bool, allowRetry: Bool) {
         DispatchQueue.main.async {
             self.recoveryLabel.text = message
@@ -246,6 +251,7 @@ private extension HelpBotViewController {
         }
     }
 
+    /// SDK 内部调用：隐藏自愈提示
     func hideRecoveryBanner() {
         DispatchQueue.main.async {
             self.recoveryBanner.isHidden = true

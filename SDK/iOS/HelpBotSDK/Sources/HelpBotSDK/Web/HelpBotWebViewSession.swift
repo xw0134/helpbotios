@@ -953,7 +953,7 @@ final class HelpBotWebViewSession: NSObject {
         destroyBlocking(timeoutMs: 6_000)
         if autoRecoveryCancelled { return false }
 
-        guard let cfg = config, let proxy = eventProxy else { return }
+        guard let cfg = config, let proxy = eventProxy else { return false }
         preload(config: cfg, eventProxy: proxy)
         if autoRecoveryCancelled { return false }
 
@@ -967,7 +967,7 @@ final class HelpBotWebViewSession: NSObject {
         let bootstrapOk = awaitWebSdkBootstrapReady(timeoutMs: 20_000)
         if !bootstrapOk { return false }
 
-        guard let wv = webView else { return }
+        guard let wv = webView else { return false }
 
         // 2) login（必须）：setTokenAndConnect + 等待 SDK_READY（与 HelpBot.loginInternal 同策略）
         let waiter = beginLoginWait()
