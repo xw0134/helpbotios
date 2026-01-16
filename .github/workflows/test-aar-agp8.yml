@@ -6,6 +6,7 @@ on:
     paths:
       - 'HelpBot/**'
       - 'test/**'
+      - 'gradle.properties'
       - '.github/workflows/test-aar-agp8.yml'
   pull_request:
     branches: [ main, master ]
