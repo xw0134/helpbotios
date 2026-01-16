@@ -33,13 +33,19 @@ jobs:
       - name: Build HelpBot AAR
         run: |
           chmod +x gradlew
-          ./gradlew :HelpBot:assembleRelease --stacktrace
+          ./gradlew :HelpBot:assembleRelease --stacktrace\r
+      \r
+      - name: List build outputs\r
+        run: |\r
+          echo "Listing HelpBot build outputs:"\r
+          find HelpBot/build -name "*.aar" || echo "No AAR found"\r
+          ls -R HelpBot/build/outputs/ || echo "outputs directory not found"
       
       - name: Upload AAR
         uses: actions/upload-artifact@v4
         with:
           name: helpbot-aar-agp4
-          path: HelpBot/build/outputs/aar/HelpBot-release.aar
+          path: HelpBot/build/outputs/aar/*-release.aar
           retention-days: 7
   
   test-agp4:
