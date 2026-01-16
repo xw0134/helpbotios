@@ -49,6 +49,10 @@ public final class HelpBot {
     private static var keychain: HBKeychainStorage = HBKeychainStorage(service: "com.helpbot.sdk")
 
     private static weak var currentConversationController: UIViewController?
+    
+    // 生命周期监听：用于“无 VC 调用 showConversation()”时，在窗口可用后自动执行（对齐 Android Context->startActivity 体验）
+    private static var hasRegisteredAppLifecycleObserver: Bool = false
+    private static var appLifecycleObserverToken: NSObjectProtocol?
 
     private struct PendingLoginRequest {
         let token: String
@@ -72,6 +76,86 @@ public final class HelpBot {
 
     private init() {
         assertionFailure("HelpBot 不能被实例化")
+    }
+    
+    // MARK: - App lifecycle observer (internal)
+    
+    private static func ensureAppLifecycleObserverInstalled() {
+        operationLock.lock()
+        if hasRegisteredAppLifecycleObserver {
+            operationLock.unlock()
+            return
+        }
+        hasRegisteredAppLifecycleObserver = true
+        operationLock.unlock()
+        
+        // 只在 iOS App 场景生效；extension 下 UIApplication.shared 仍可用但通知语义不同
+        let token = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            tryRunPendingShowConversationIfPossible(trigger: "didBecomeActive")
+        }
+        appLifecycleObserverToken = token
+    }
+    
+    private static func tryRunPendingShowConversationIfPossible(trigger: String) {
+        // 仅在主线程尝试展示（UIKit 要求）
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { tryRunPendingShowConversationIfPossible(trigger: trigger) }
+            return
+        }
+        
+        // 已显示：直接 open
+        if currentConversationController != nil {
+            HelpBotWebViewSession.shared.openWhenReady()
+            return
+        }
+        
+        // 读取并校验 pending request（TTL）
+        var hasPending = false
+        operationLock.lock()
+        if let pending = pendingShowConversationRequest {
+            let now = nowMs()
+            if now - pending.createdAtMs <= pendingRequestTtlMs {
+                hasPending = true
+            } else {
+                pendingShowConversationRequest = nil
+            }
+        }
+        operationLock.unlock()
+        if !hasPending { return }
+        
+        // install/login 状态不满足：等待后续 onLoginFinished 或下一次 didBecomeActive
+        operationLock.lock()
+        let installed = (installState == .installed && config != nil)
+        let loginBusy = (loginState == .loginPending || loginState == .loggingIn)
+        let confirmed = loginConfirmed
+        operationLock.unlock()
+        if !installed || loginBusy { return }
+        
+        // 登录确认：优先 loginConfirmed，其次 status 快照兜底
+        var loggedIn = confirmed
+        if !loggedIn {
+            loggedIn = HelpBotWebViewSession.shared.isAuthenticatedSnapshot(maxAgeMs: 3000)
+        }
+        if !loggedIn {
+            // 按 Android 行为：未登录不自动弹窗/不强行展示
+            return
+        }
+        
+        guard let top = ApplicationUtils.getTopViewController() else {
+            HBlogger.d(tag, "tryRunPendingShowConversationIfPossible(\(trigger)): topViewController is nil, wait", nil)
+            return
+        }
+        
+        // 消费 pending（只执行一次）
+        operationLock.lock()
+        pendingShowConversationRequest = nil
+        operationLock.unlock()
+        
+        presentConversationNow(from: top)
     }
 
     // MARK: - Public APIs
@@ -190,6 +274,12 @@ public final class HelpBot {
 
                 // 启动健康监管（install 完成后持续运行，直到 destroy）
                 HelpBotWebViewSession.shared.startMonitoring(eventProxy: eventProxy)
+                
+                // 安装生命周期观察者：用于 showConversation() 无 VC 调用场景自动补执行（对齐 Android）
+                DispatchQueue.main.async {
+                    ensureAppLifecycleObserverInstalled()
+                    tryRunPendingShowConversationIfPossible(trigger: "installFinished")
+                }
 
                 operationLock.lock()
                 installState = .installed
@@ -336,8 +426,40 @@ public final class HelpBot {
      */
     @discardableResult
     public static func showConversation() -> HelpBotResult<Void> {
+        // 对齐 Android：showConversation 不要求宿主传入 VC；
+        // 若当前无法获取 topVC（例如 App 尚未 active / window 未就绪），则入队等待 didBecomeActive 后补执行。
+        ensureAppLifecycleObserverInstalled()
+        
+        // 已展示：直接 open
+        if currentConversationController != nil {
+            HelpBotWebViewSession.shared.openWhenReady()
+            return .success()
+        }
+        
+        // 先按状态机做“入队/拒绝”决策（避免先取 topVC 导致误判）
+        operationLock.lock()
+        if installState == .installing {
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            return .success()
+        }
+        if installState != .installed || config == nil {
+            operationLock.unlock()
+            return .failure(.sdkNotInitialized, "SDK 未初始化：请先调用 HelpBot.install(...)")
+        }
+        if loginState == .loginPending || loginState == .loggingIn {
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            return .success()
+        }
+        operationLock.unlock()
+        
+        // install/login 已满足：尝试直接展示；若取不到 topVC，入队等待
         guard let top = ApplicationUtils.getTopViewController() else {
-            return .failure(.internalError, "无法获取顶层 ViewController")
+            operationLock.lock()
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            return .success()
         }
         return showConversation(from: top)
     }
@@ -571,6 +693,12 @@ public final class HelpBot {
         pendingEventsListener = nil
         pendingEventsListenerCreatedAtMs = 0
         config = nil
+        // 解除生命周期监听（避免宿主长生命周期进程中 observer 堆积）
+        if let t = appLifecycleObserverToken {
+            NotificationCenter.default.removeObserver(t)
+        }
+        appLifecycleObserverToken = nil
+        hasRegisteredAppLifecycleObserver = false
         operationLock.unlock()
         
         // 清理存储
@@ -1215,10 +1343,14 @@ public final class HelpBot {
         }
         operationLock.unlock()
 
-        if let req = showToRun, let from = req.from {
-            DispatchQueue.main.async {
+        guard let req = showToRun else { return }
+        DispatchQueue.main.async {
+            if let from = req.from {
                 presentConversationNow(from: from)
+                return
             }
+            // 无 VC：尝试从顶层 VC 展示（对齐 Android 的 Context->startActivity 体验）
+            tryRunPendingShowConversationIfPossible(trigger: "loginFinished")
         }
     }
 
@@ -1270,6 +1402,9 @@ public final class HelpBot {
             HelpBotWebViewSession.shared.openWhenReady()
             return
         }
+        
+        // 对齐 Android：showConversation 时尝试上报系统信息（失败不影响展示）
+        _ = reportSystemInfoToServer()
 
         let showTitleBar = shouldShowTitleBar()
         let vc = HelpBotViewController(showTitleBar: showTitleBar)
