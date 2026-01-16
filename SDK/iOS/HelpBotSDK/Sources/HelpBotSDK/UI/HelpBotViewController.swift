@@ -25,7 +25,13 @@ final class HelpBotViewController: UIViewController {
 
     // 自愈提示条（仅 SDK 会话页内显示，不影响宿主）
     private let recoveryBanner = UIView()
-    private let recoverySpinner = UIActivityIndicatorView(style: .medium)
+    /// iOS 12 兼容：`.medium` 为 iOS 13+；低版本使用 `.gray`
+    private let recoverySpinner: UIActivityIndicatorView = {
+        if #available(iOS 13.0, *) {
+            return UIActivityIndicatorView(style: .medium)
+        }
+        return UIActivityIndicatorView(style: .gray)
+    }()
     private let recoveryLabel = UILabel()
     private let recoveryCancelButton = UIButton(type: .system)
     private let recoveryRetryButton = UIButton(type: .system)
@@ -43,6 +49,11 @@ final class HelpBotViewController: UIViewController {
 
     required init?(coder: NSCoder) {
         return nil
+    }
+    
+    deinit {
+        // 确保 observer 释放（SDK 视图生命周期结束时）
+        teardownKeyboardAvoidance()
     }
 
     override func viewDidLoad() {
@@ -315,12 +326,3 @@ private extension HelpBotViewController {
         }
     }
 }
-
-// 确保 observer 释放（SDK 视图生命周期结束时）
-extension HelpBotViewController {
-    deinit {
-        teardownKeyboardAvoidance()
-    }
-}
-
-
