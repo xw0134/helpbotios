@@ -184,7 +184,7 @@ jobs:
         if: always()
         run: |
           echo "## AGP 8.7.3 Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "âœ… Build completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "âœ?Build completed successfully" >> $GITHUB_STEP_SUMMARY
           echo "- AAR loaded correctly" >> $GITHUB_STEP_SUMMARY
           echo "- No dependency conflicts" >> $GITHUB_STEP_SUMMARY
           echo "- APK generated successfully" >> $GITHUB_STEP_SUMMARY

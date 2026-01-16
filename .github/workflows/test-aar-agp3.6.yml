@@ -26,17 +26,17 @@ jobs:
       
     - name: Build HelpBot AAR
       run: |
-        cd HelpBotSdkDemo
+        
         ./gradlew :HelpBot:assembleRelease --stacktrace
         
     - name: Copy AAR to test directory
       run: |
-        mkdir -p HelpBotSdkDemo/test/aar
-        cp HelpBotSdkDemo/HelpBot/build/outputs/aar/HelpBot-release.aar HelpBotSdkDemo/test/aar/
+        mkdir -p test/aar
+        cp HelpBot/build/outputs/aar/HelpBot-release.aar test/aar/
         
     - name: Configure test environment for AGP 3.6
       run: |
-        cd HelpBotSdkDemo/test
+        cd test
         
         # Create build.gradle for AGP 3.6
         cat > build.gradle << 'EOF'
@@ -133,12 +133,12 @@ jobs:
         
     - name: Build test app with AAR (AGP 3.6)
       run: |
-        cd HelpBotSdkDemo/test
+        cd test
         ./gradlew :app2:assembleDebug --stacktrace
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: app2-debug-agp3.6
-        path: HelpBotSdkDemo/test/app2/build/outputs/apk/debug/*.apk
+        path: test/app2/build/outputs/apk/debug/*.apk
         retention-days: 30

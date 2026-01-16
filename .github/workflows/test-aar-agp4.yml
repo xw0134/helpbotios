@@ -163,7 +163,7 @@ jobs:
           }
           
           dependencies {
-              // 仅依赖HelpBot AAR - 零其他依赖
+              // 仅依赖HelpBot AAR - 零其他依�?
               implementation files('../aar/HelpBot-release.aar')
           }
           EOF
@@ -226,7 +226,7 @@ jobs:
         run: |
           echo "## AGP 4.2.2 Test Results" >> $GITHUB_STEP_SUMMARY
           if [ $? -eq 0 ]; then
-            echo "✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "�?Build completed successfully" >> $GITHUB_STEP_SUMMARY
             echo "- Pure AAR dependency (zero external libs)" >> $GITHUB_STEP_SUMMARY
             echo "- Groovy DSL configuration" >> $GITHUB_STEP_SUMMARY
             echo "- No androidx dependencies" >> $GITHUB_STEP_SUMMARY
@@ -234,6 +234,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**This proves HelpBot AAR is compatible with AGP 4.x!**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Build failed" >> $GITHUB_STEP_SUMMARY
+            echo "�?Build failed" >> $GITHUB_STEP_SUMMARY
             echo "- Check logs for details" >> $GITHUB_STEP_SUMMARY
           fi
