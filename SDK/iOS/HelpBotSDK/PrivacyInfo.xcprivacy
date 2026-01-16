@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <!--
-     HelpBotSDK 隐私清单（Privacy Manifest）
+     HelpBotSDK隐私清单
      说明：
-     - 该文件用于满足 Apple 对第三方 SDK 的隐私披露要求（2026 交付标准）。
-     - 本 SDK 不做跨 App 跟踪（Tracking）。
-     - SDK 在“上报系统信息到服务器（reportSystemInfoToServer）”场景下，会上报部分设备/诊断信息（可通过 fullPrivacyMode 最小化上报）。
+     - 文件满足Apple对第三方SDK的隐私披露要求
+     - SDK不做跨App跟踪
+     - SDK在上报系统信息到服务器（reportSystemInfoToServer）场景下，会上报部分设备/诊断信息（可通过fullPrivacyMode最小化上报）
      -->
 
     <key>NSPrivacyTracking</key>

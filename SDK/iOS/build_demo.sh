@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 #
-# HelpBot iOS Demo 构建脚本（仅 Demo）
+# HelpBot iOS Demo 构建脚本
 #
 # 目标：
-# - 只负责编译 Demo（不构建 SDK 源码）
-# - Demo 必须通过 `../HelpBotSDK.xcframework`（二进制交付形态）集成
+# - 只负责编译 Demo
 #
 # 输出：
-# - `SDK/iOS/build/HelpBotDemo.xcarchive`
-# - `SDK/iOS/build/HelpBotDemo.xcarchive.zip`
-# - `SDK/iOS/build/HelpBotDemo-unsigned.ipa`（未签名，用于交付/后续签名；不可直接安装）
+# - SDK/iOS/build/HelpBotDemo.xcarchive
+# - SDK/iOS/build/HelpBotDemo.xcarchive.zip
+# - SDK/iOS/build/HelpBotDemo-unsigned.ipa（未签名，用于交付/后续签名；不可直接安装）
 #
 
 set -euo pipefail

@@ -331,11 +331,7 @@ public final class HelpBot {
     
     /**
      打开会话窗口（推荐，无需传入 ViewController）。
-     
-     Android 对齐：
-     - Android 侧通常无需传入 Activity，SDK 会自行获取当前可展示页面并“像打开一个页面一样”展示。
-     - iOS 侧同样提供该无参接口：内部自动解析顶层 VC，并优先使用导航栈 `push`，避免 iOS 的 modal sheet “弹窗感”。
-     
+
      - Returns: 结果（成功表示已触发展示/或已入队等待 install/login 完成）
      */
     @discardableResult
@@ -408,6 +404,58 @@ public final class HelpBot {
     }
     
     // MARK: - FAQ APIs
+    
+    /**
+     显示 FAQ 主页面（推荐，无需传入 ViewController）。
+     
+     - Parameter config: 可选配置（支持 key：tn）
+     - Returns: 结果
+     */
+    @discardableResult
+    public static func showFAQs(config: [String: Any]? = nil) -> HelpBotResult<Void> {
+        guard let top = ApplicationUtils.getTopViewController() else {
+            return .failure(.contextNull, "无法获取顶层 ViewController")
+        }
+        return showFAQs(from: top, config: config)
+    }
+    
+    /**
+     显示 FAQ 分组页面（推荐，无需传入 ViewController）。
+     
+     - Parameters:
+       - sectionPublishId: 分组 ID（必填）
+       - config: 可选配置（支持 key：tn）
+     - Returns: 结果
+     */
+    @discardableResult
+    public static func showFAQSection(
+        sectionPublishId: String,
+        config: [String: Any]? = nil
+    ) -> HelpBotResult<Void> {
+        guard let top = ApplicationUtils.getTopViewController() else {
+            return .failure(.contextNull, "无法获取顶层 ViewController")
+        }
+        return showFAQSection(from: top, sectionPublishId: sectionPublishId, config: config)
+    }
+    
+    /**
+     显示 FAQ 单页（推荐，无需传入 ViewController）。
+     
+     - Parameters:
+       - questionPublishId: 问题 ID（必填）
+       - config: 可选配置（支持 key：tn）
+     - Returns: 结果
+     */
+    @discardableResult
+    public static func showSingleFAQ(
+        questionPublishId: String,
+        config: [String: Any]? = nil
+    ) -> HelpBotResult<Void> {
+        guard let top = ApplicationUtils.getTopViewController() else {
+            return .failure(.contextNull, "无法获取顶层 ViewController")
+        }
+        return showSingleFAQ(from: top, questionPublishId: questionPublishId, config: config)
+    }
     
     /**
      显示 FAQ 主页面（使用系统浏览器打开 URL，而非在 WebChat 内嵌打开）。
@@ -593,8 +641,7 @@ public final class HelpBot {
         let diagnosis = NetworkUtils.diagnose()
 
         var meta: [String: Any] = [:]
-        // 对齐 Android：os_type 使用小写平台标识
-        meta["os_type"] = "ios"
+        meta["os_type"] = "iOS"
         meta["os_version"] = dev.getOSVersion()
         meta["device_model"] = dev.getDeviceModel()
         meta["app_name"] = ApplicationUtils.getAppName() ?? ""
@@ -610,7 +657,7 @@ public final class HelpBot {
             meta["language"] = dev.getDeviceLanguage()
             meta["app_identifier"] = dev.getBundleId()
             meta["device_id"] = dev.getDeviceId()
-            // 对齐 Android：磁盘空间字段
+            // ：磁盘空间字段
             meta["total_space"] = dev.getTotalDiskSpace()
             meta["free_space"] = dev.getFreeDiskSpace()
             meta["is_online"] = diagnosis.networkConnected && diagnosis.hasInternetCapability
@@ -1058,6 +1105,11 @@ public final class HelpBot {
         operationLock.unlock()
     }
 
+    /// SDK 内部自愈使用：读取已登录 token（仅供 SDK 内部调用，宿主不可见）
+    static func getStoredJwtTokenForRecovery() -> String? {
+        return keychain.getString(tokenStorageKeyJwt)
+    }
+
     static func onConversationDismissed() {
         operationLock.lock()
         currentConversationController = nil
@@ -1223,10 +1275,10 @@ public final class HelpBot {
         let vc = HelpBotViewController(showTitleBar: showTitleBar)
         currentConversationController = vc
 
-        // Android 对齐：优先 push（像打开一个页面），避免 iOS 默认 modal sheet 的“弹窗感”
+       
         // 说明：viewController 可能本身就是 UINavigationController/UITabBarController；因此必须做一次更稳的解析。
         if let hostNav = ApplicationUtils.getHostNavigationController(from: viewController) {
-            HBlogger.i(tag, "showConversation: 使用 push 展示（对齐 Android 非弹窗体验）", nil)
+            HBlogger.i(tag, "show", nil)
             hostNav.pushViewController(vc, animated: true)
             return
         }

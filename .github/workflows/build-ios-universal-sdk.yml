@@ -52,6 +52,16 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            SDK/iOS/.build
+            SDK/iOS/HelpBotSDK/.build
+          key: ${{ runner.os }}-spm-${{ hashFiles('SDK/iOS/HelpBotSDK/Package.swift', 'SDK/iOS/HelpBotSDK/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       - name: Install xcpretty (optional)
         run: |
           set -euo pipefail
@@ -62,6 +72,51 @@ jobs:
           set -euo pipefail
           chmod +x SDK/iOS/build_sdk.sh
           bash SDK/iOS/build_sdk.sh
+
+      - name: Write Job Summary
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "## 📦 HelpBot iOS Universal SDK - Build Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 项目 | 值 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|-----|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **配置** | \`${CONFIGURATION}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **提交** | [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **分支** | \`${GITHUB_REF_NAME}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **运行环境** | macOS 14 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          
+          if [ -f "SDK/iOS/build/HelpBotSDK.xcframework.zip" ]; then
+            SIZE=$(ls -lh SDK/iOS/build/HelpBotSDK.xcframework.zip | awk '{print $5}')
+            echo "| **产物大小** | ${SIZE} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ✅ 编译成功" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "通用 XCFramework 已成功生成并打包。" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            
+            if [ -d "SDK/iOS/build/HelpBotSDK.xcframework" ]; then
+              echo "### 📱 支持的架构" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "- ✅ iOS 真机 (arm64)" >> "$GITHUB_STEP_SUMMARY"
+              echo "- ✅ iOS 模拟器 (arm64, x86_64)" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "### ❌ 编译失败" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "XCFramework 生成失败，请查看日志。" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          
+          if [ -f "SDK/iOS/build/build-report.txt" ]; then
+            echo "### 📋 编译报告" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+            sed -n '1,50p' SDK/iOS/build/build-report.txt >> "$GITHUB_STEP_SUMMARY" || true
+            echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifacts
         if: always()

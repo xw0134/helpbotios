@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 #
-# HelpBot iOS SDK 构建脚本（仅 SDK）
+# HelpBot iOS SDK 构建脚本
 #
 # 目标：
-# - 从 `SDK/iOS/HelpBotSDK`（Swift Package）构建标准交付形态：`HelpBotSDK.xcframework`
-# - 强校验：必须包含 Modules/Headers（可 `import HelpBotSDK`）
+# - 从SDK/iOS/HelpBotSDK（Swift Package）构建HelpBotSDK.xcframework
 # - 输出：
-#   - `SDK/iOS/build/HelpBotSDK.xcframework`
-#   - `SDK/iOS/build/HelpBotSDK.xcframework.zip`
-#   - `SDK/iOS/build/build-report.txt`
-#
-# 约束：
-# - 只在 macOS + Xcode 环境运行
-# - 作为 SDK 构建入口，供 GitHub Actions / 本地使用
+#   - SDK/iOS/build/HelpBotSDK.xcframework
+#   - SDK/iOS/build/HelpBotSDK.xcframework.zip
+#   - SDK/iOS/build/build-report.txt
+
 #
 
 set -euo pipefail
 
 # ============================================
-# 重要说明（兼容性/稳定性）
+# 重要说明
 # - 推荐使用 bash 执行本脚本：./build_sdk.sh 或 bash build_sdk.sh
 # - 若被 sh/posix 模式执行，可能触发 echo 行为差异导致路径变量污染
 # ============================================

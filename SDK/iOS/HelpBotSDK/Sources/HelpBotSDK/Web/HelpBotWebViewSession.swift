@@ -71,6 +71,15 @@ final class HelpBotWebViewSession: NSObject {
     private var initRetryCount: Int = 0
     private var initTimeoutTimer: DispatchSourceTimer?
 
+    // 图2 自愈：主框架 DNS/网络错误后自动“重建 WKWebView -> init -> login -> (如需)open”
+    private let recoveryLock = NSLock()
+    private var autoRecoveryInProgress: Bool = false
+    private var lastAutoRecoveryAtMs: Int64 = 0
+    private var autoRecoveryCount: Int = 0
+    private var autoRecoveryFailureCount: Int = 0
+    private var autoRecoveryDisabled: Bool = false
+    private var autoRecoveryCancelled: Bool = false
+
     // 最近一次 WebView 错误快照（用于 install 超时诊断/提示）
     private var lastLoadErrorSnapshot: WebViewLoadErrorSnapshot?
 
@@ -130,7 +139,7 @@ final class HelpBotWebViewSession: NSObject {
             self.attachedContainerView = containerView
             webView.removeFromSuperview()
             
-            // 再次加固：防止宿主/系统在某些场景重置 scrollView 属性，导致出现“水平滚动条/横向弹性”。
+            // 防止宿主/系统在某些场景重置 scrollView 属性，导致出现“水平滚动条/横向弹性”。
             // 目标：
             // - 禁止原生横向指示器/横向回弹（避免被误判为“原生 UI 出现水平滚动条”）
             // - 不裁剪 WebView（内容宽度由 Web 侧控制，SDK 不做强裁剪）
@@ -776,6 +785,12 @@ final class HelpBotWebViewSession: NSObject {
         isMainFrame: Bool,
         httpStatus: Int?
     ) {
+        // 自愈过程中忽略错误回调，避免 destroy/reload 触发的二次回调导致风暴
+        recoveryLock.lock()
+        let recovering = autoRecoveryInProgress
+        recoveryLock.unlock()
+        if recovering { return }
+
         // 记录最近一次错误快照（用于 install 超时诊断/提示）
         stateLock.lock()
         lastLoadErrorSnapshot = WebViewLoadErrorSnapshot(
@@ -793,6 +808,16 @@ final class HelpBotWebViewSession: NSObject {
         var data: [String: Any] = ["type": errorType, "retryCount": pageLoadRetryCount]
         if let url = url { data["url"] = url }
         eventProxy?.sendEvent("WEBVIEW_LOAD_ERROR", data)
+
+        // 图2：ERR_NAME_NOT_RESOLVED 等 DNS/网络类错误自愈（前提：必须已完成 install + login）
+        if isMainFrame, shouldTriggerAutoRecovery(errorCode: errorCode, description: description) {
+            triggerAutoRecoveryIfEligible(
+                from: "webview_error",
+                errorCode: errorCode,
+                description: description
+            )
+            // 注意：仍可继续走下面的“最多重试 2 次 reload”逻辑，作为短路径兜底
+        }
 
         // install 阶段加速失败判定：主框架确定性 HTTP 错误无需继续重试
         if isMainFrame {
@@ -823,6 +848,222 @@ final class HelpBotWebViewSession: NSObject {
         let delayMs: Int64 = (retryCount == 1) ? 1_000 : 3_000
         mainQueue.asyncAfter(deadline: .now() + .milliseconds(Int(delayMs))) {
             webView.reload()
+        }
+    }
+
+    private func shouldTriggerAutoRecovery(errorCode: Int?, description: String?) -> Bool {
+        // iOS 网络/DNS 常见错误码（NSURL error）：
+        // -1003 CannotFindHost（DNS/Host）
+        // -1006 DNSLookupFailed
+        // -1001 TimedOut
+        // -1009 NotConnectedToInternet
+        if let code = errorCode {
+            if code == -1003 || code == -1006 || code == -1001 || code == -1009 {
+                return true
+            }
+        }
+        if let d = description?.uppercased() {
+            if d.contains("ERR_NAME_NOT_RESOLVED") || d.contains("DNS") {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func triggerAutoRecoveryIfEligible(from: String, errorCode: Int?, description: String?) {
+        // 必须已完成 install + login（按需求约束）
+        if !HelpBot.verifyInstall() { return }
+        guard let token = HelpBot.getStoredJwtTokenForRecovery(),
+              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        // 若已被标记为“停止自愈”，则只在 UI 内提示一次，不再继续自动重建
+        if autoRecoveryDisabled {
+            notifyRecoveryUiFailed("网络异常，已停止自动重建。请检查网络后点击“重试”或“关闭”。")
+            return
+        }
+
+        // 节流：避免网络抖动/多次回调触发风暴
+        let now = nowMs()
+        recoveryLock.lock()
+        if autoRecoveryInProgress {
+            recoveryLock.unlock()
+            return
+        }
+        if now - lastAutoRecoveryAtMs < 5_000 {
+            recoveryLock.unlock()
+            return
+        }
+        autoRecoveryInProgress = true
+        lastAutoRecoveryAtMs = now
+        autoRecoveryCount += 1
+        autoRecoveryCancelled = false
+        recoveryLock.unlock()
+
+        let shouldShow = HelpBot.isConversationVisible()
+        let vc = attachedViewController
+        let container = attachedContainerView
+
+        if shouldShow {
+            notifyRecoveryUiStart()
+        }
+
+        HBlogger.w(Self.tag, "触发自动自愈: from=\(from) shouldShow=\(shouldShow) errorCode=\(errorCode ?? 0) desc=\(description ?? "")", nil)
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let ok = self.performAutoRecovery(token: token, shouldShow: shouldShow, vc: vc, container: container)
+            if ok {
+                self.autoRecoveryFailureCount = 0
+                self.notifyRecoveryUiSuccess()
+            } else {
+                self.autoRecoveryFailureCount += 1
+                if self.autoRecoveryCancelled {
+                    self.notifyRecoveryUiCancelled()
+                } else if self.autoRecoveryFailureCount >= 3 {
+                    self.autoRecoveryDisabled = true
+                    self.notifyRecoveryUiFailed("网络恢复失败（已停止自动重建）。请检查网络后点击“重试”，或点击“关闭”。")
+                } else {
+                    self.notifyRecoveryUiInProgress("网络仍不稳定，正在重试重建…（可取消/关闭）")
+                }
+            }
+            self.recoveryLock.lock()
+            self.autoRecoveryInProgress = false
+            self.recoveryLock.unlock()
+        }
+    }
+
+    private func destroyBlocking(timeoutMs: Int) {
+        if Thread.isMainThread {
+            destroyOnMainThread()
+            return
+        }
+        let latch = HBCountDownLatch(1)
+        mainQueue.async { [weak self] in
+            defer { latch.countDown() }
+            self?.destroyOnMainThread()
+        }
+        _ = latch.await(timeoutMs: max(timeoutMs, 0))
+    }
+
+    private func performAutoRecovery(token: String, shouldShow: Bool, vc: UIViewController?, container: UIView?) -> Bool {
+        if autoRecoveryCancelled { return false }
+        // 1) 重建 WKWebView（相当于重新 install Web 部分）
+        destroyBlocking(timeoutMs: 6_000)
+        if autoRecoveryCancelled { return false }
+
+        guard let cfg = config, let proxy = eventProxy else { return }
+        preload(config: cfg, eventProxy: proxy)
+        if autoRecoveryCancelled { return false }
+
+        // 若当前处于 showConversation（UI 显示），恢复后需要 show：先 re-attach（确保容器接管新的 WKWebView）
+        if shouldShow, let vc = vc, let container = container {
+            attach(to: vc, containerView: container)
+        }
+
+        let initOk = awaitWebSdkInitialized(timeoutMs: max(cfg.initTimeoutMs, 35_000))
+        if !initOk { return false }
+        let bootstrapOk = awaitWebSdkBootstrapReady(timeoutMs: 20_000)
+        if !bootstrapOk { return false }
+
+        guard let wv = webView else { return }
+
+        // 2) login（必须）：setTokenAndConnect + 等待 SDK_READY（与 HelpBot.loginInternal 同策略）
+        let waiter = beginLoginWait()
+        mainQueue.async {
+            wv.evaluateJavaScript(HelpBotJsCommand.buildSetTokenAndConnect(token), completionHandler: nil)
+        }
+
+        let deadline = nowMs() + Int64(30_000)
+        while nowMs() < deadline {
+            if self.autoRecoveryCancelled { return false }
+            let remaining = Int(deadline - nowMs())
+            let step = min(250, max(remaining, 0))
+            waiter.awaitStep(step)
+
+            if waiter.isFinished() {
+                if waiter.isSuccess() {
+                    HelpBot.markLoginConfirmedFromWeb()
+                    if shouldShow {
+                        openWhenReady()
+                    }
+                    return true
+                }
+                return false
+            }
+
+            // 兜底：检查 authenticated=true
+            if let status = getWebSdkStatusBlocking(timeoutMs: 800),
+               (status["authenticated"] as? Bool) == true {
+                HelpBot.markLoginConfirmedFromWeb()
+                if shouldShow {
+                    openWhenReady()
+                }
+                return true
+            }
+        }
+        return false
+    }
+
+    // MARK: - User control (cancel / retry)
+
+    func cancelAutoRecovery() {
+        recoveryLock.lock()
+        autoRecoveryCancelled = true
+        recoveryLock.unlock()
+    }
+
+    func requestAutoRecoveryFromUser() {
+        // 用户点击“重试”：允许绕过 autoRecoveryDisabled
+        recoveryLock.lock()
+        autoRecoveryDisabled = false
+        autoRecoveryFailureCount = 0
+        recoveryLock.unlock()
+
+        let err = lastLoadErrorSnapshot
+        triggerAutoRecoveryIfEligible(from: "user_retry", errorCode: err?.errorCode, description: err?.description)
+    }
+
+    // MARK: - UI notify (only when conversation visible)
+
+    private func notifyRecoveryUiStart() {
+        notifyRecoveryUiInProgress("网络重建中，请稍候…（可取消/关闭）")
+    }
+
+    private func notifyRecoveryUiInProgress(_ msg: String) {
+        DispatchQueue.main.async {
+            if let vc = self.attachedViewController as? HelpBotViewController {
+                vc.showRecoveryBanner(message: msg, inProgress: true, allowRetry: false)
+            }
+        }
+    }
+
+    private func notifyRecoveryUiSuccess() {
+        DispatchQueue.main.async {
+            if let vc = self.attachedViewController as? HelpBotViewController {
+                vc.hideRecoveryBanner()
+            }
+        }
+    }
+
+    private func notifyRecoveryUiCancelled() {
+        DispatchQueue.main.async {
+            if let vc = self.attachedViewController as? HelpBotViewController {
+                vc.showRecoveryBanner(
+                    message: "已取消网络重建。你可以继续等待网络恢复，或点击“关闭”。",
+                    inProgress: false,
+                    allowRetry: false
+                )
+            }
+        }
+    }
+
+    private func notifyRecoveryUiFailed(_ msg: String) {
+        DispatchQueue.main.async {
+            if let vc = self.attachedViewController as? HelpBotViewController {
+                vc.showRecoveryBanner(message: msg, inProgress: false, allowRetry: true)
+            }
         }
     }
 
@@ -1069,7 +1310,7 @@ extension HelpBotWebViewSession: WKUIDelegate {
 
      兼容性/稳定性说明：
      - 部分 Xcode/WebKit Swift overlay 版本会出现 `WKOpenPanelParameters` “找不到类型”的编译问题（即使运行时系统支持）。
-     - 为保证 SDK 在不同 Xcode/SDK 组合下都能稳定编译，这里**不直接引用** `WKOpenPanelParameters`，
+     - 为保证 SDK 在不同 Xcode/SDK 组合下都能稳定编译，这里不直接引用 `WKOpenPanelParameters`，
        改为实现对应的 ObjC selector，并用 `AnyObject` 接收参数。
      - 低版本系统（iOS 14 以下）不会触发该回调；即使未触发，也不影响核心聊天功能。
 

@@ -215,7 +215,11 @@ HelpBot.login("your_jwt_token") { result in
 }
 
 // 3. 显示对话窗口
-HelpBot.showConversation(from: viewController)
+// 推荐：无需传入 ViewController，SDK 内部自动获取顶层 VC 并展示
+HelpBot.showConversation()
+
+// 如需强制从指定页面 push/present（特殊场景）：
+// HelpBot.showConversation(from: viewController)
 
 // 4. 隐藏对话窗口
 HelpBot.hideConversation()

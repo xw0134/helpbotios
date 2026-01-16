@@ -14,12 +14,8 @@ import UIKit
  */
 
 /**
- 初始化回调（ObjC 可见）
+ 初始化回调
 
- ⚠️ 重要：
- - `@objc protocol` **不能嵌套在类型内部**，否则在某些编译模式/CI 下会报：
-   `protocol ... cannot be nested inside another declaration`
- - 因此必须放在文件顶层。
  */
 @objc(HBHelpBotInitDelegate)
 public protocol HBHelpBotInitDelegate: NSObjectProtocol {
@@ -30,7 +26,7 @@ public protocol HBHelpBotInitDelegate: NSObjectProtocol {
 }
 
 /**
- 事件监听（ObjC 可见）
+ 事件监听
  */
 @objc(HBHelpBotEventsDelegate)
 public protocol HBHelpBotEventsDelegate: NSObjectProtocol {
@@ -169,6 +165,17 @@ public final class HBHelpBot: NSObject {
      */
     @objc public static func showConversation(from viewController: UIViewController) {
         HelpBot.showConversation(from: viewController)
+    }
+
+    /**
+     打开会话窗口（推荐）
+     
+     Android 对齐：
+     - 无需传入 ViewController，SDK 内部自动获取顶层 VC 并展示。
+     - 兼容 SwiftUI / 多 Scene / UIKit 老项目。
+     */
+    @objc public static func showConversation() {
+        _ = HelpBot.showConversation()
     }
 
     /**

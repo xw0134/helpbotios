@@ -145,7 +145,6 @@ public final class IOSDevice: Device {
         }
     }
 
-    // MARK: - Disk Space（对齐 Android：total_space / free_space）
 
     /**
      获取总磁盘空间（GiB，字符串，保留 2 位小数）。
@@ -166,7 +165,7 @@ public final class IOSDevice: Device {
     }
 
     /**
-     获取运营商名称（尽力而为；无 SIM/权限/系统限制时返回空字符串）。
+     获取运营商名称（无 SIM/权限/系统限制时返回空字符串）。
      */
     public func getCarrierName() -> String {
         let info = CTTelephonyNetworkInfo()
@@ -207,7 +206,6 @@ public final class IOSDevice: Device {
         return 0
     }
     
-    // MARK: - Private Helper Methods
 
     private func getFileSystemSizeBytes() -> UInt64? {
         do {
@@ -240,7 +238,6 @@ public final class IOSDevice: Device {
     }
 
     private func formatGiB(bytes: UInt64) -> String {
-        // 与 Android 对齐：1 GiB = 1024^3 bytes
         let gib = Double(bytes) / 1_073_741_824.0
         if gib.isNaN || gib.isInfinite || gib < 0 { return "" }
         let rounded = (gib * 100.0).rounded() / 100.0

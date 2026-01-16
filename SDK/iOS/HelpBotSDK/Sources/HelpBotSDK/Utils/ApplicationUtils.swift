@@ -10,6 +10,7 @@ import UserNotifications
 public final class ApplicationUtils {
     
     private static let tag = "AppUtil"
+    private static let topViewControllerMaxDepth = 64
     
     /**
      判断应用是否处于调试模式。
@@ -122,10 +123,26 @@ public final class ApplicationUtils {
      */
     public static func getKeyWindow() -> UIWindow? {
         if #available(iOS 13.0, *) {
-            return UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-                .first { $0.isKeyWindow }
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            if scenes.isEmpty { return nil }
+            
+            // iOS 13+ 多 Scene：优先选取前台激活的 Scene，避免拿到后台/已断开的窗口
+            let foregroundActive = scenes.filter { $0.activationState == .foregroundActive }
+            let foregroundInactive = scenes.filter { $0.activationState == .foregroundInactive }
+            let candidates: [UIWindowScene] = !foregroundActive.isEmpty ? foregroundActive : (!foregroundInactive.isEmpty ? foregroundInactive : scenes)
+            
+            // 1) 优先 keyWindow
+            if let key = candidates.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
+                return key
+            }
+            // 2) 兜底：正常层级、可见窗口
+            if let normal = candidates
+                .flatMap({ $0.windows })
+                .first(where: { !$0.isHidden && $0.alpha > 0.0 && $0.windowLevel == .normal }) {
+                return normal
+            }
+            // 3) 最后兜底：任意窗口
+            return candidates.flatMap({ $0.windows }).first
         } else {
             return UIApplication.shared.keyWindow
         }
@@ -140,28 +157,52 @@ public final class ApplicationUtils {
         guard let rootViewController = getKeyWindow()?.rootViewController else {
             return nil
         }
-        return getTopViewController(from: rootViewController)
+        return getTopViewController(from: rootViewController, depth: 0, visited: [])
     }
     
-    private static func getTopViewController(from viewController: UIViewController) -> UIViewController {
+    private static func getTopViewController(
+        from viewController: UIViewController,
+        depth: Int,
+        visited: Set<ObjectIdentifier>
+    ) -> UIViewController {
+        // 防御：避免极端自定义容器导致的环
+        if depth > topViewControllerMaxDepth { return viewController }
+        
+        let oid = ObjectIdentifier(viewController)
+        if visited.contains(oid) { return viewController }
+        var visited = visited
+        visited.insert(oid)
+        
+        // 1) 常见容器优先展开
+        if let nav = viewController as? UINavigationController, let visible = nav.visibleViewController {
+            return getTopViewController(from: visible, depth: depth + 1, visited: visited)
+        }
+        if let tab = viewController as? UITabBarController, let selected = tab.selectedViewController {
+            return getTopViewController(from: selected, depth: depth + 1, visited: visited)
+        }
+        if let split = viewController as? UISplitViewController, let last = split.viewControllers.last {
+            return getTopViewController(from: last, depth: depth + 1, visited: visited)
+        }
+        if #available(iOS 5.0, *), let page = viewController as? UIPageViewController,
+           let current = page.viewControllers?.first {
+            return getTopViewController(from: current, depth: depth + 1, visited: visited)
+        }
+        
+        // 2) present 关系：顶层优先
         if let presented = viewController.presentedViewController {
-            return getTopViewController(from: presented)
+            return getTopViewController(from: presented, depth: depth + 1, visited: visited)
         }
-        if let navigationController = viewController as? UINavigationController {
-            if let visible = navigationController.visibleViewController {
-                return getTopViewController(from: visible)
-            }
+        
+        // 3) 自定义容器兜底：尽量取最“上层”的 child
+        if let child = viewController.children.last {
+            return getTopViewController(from: child, depth: depth + 1, visited: visited)
         }
-        if let tabBarController = viewController as? UITabBarController {
-            if let selected = tabBarController.selectedViewController {
-                return getTopViewController(from: selected)
-            }
-        }
+        
         return viewController
     }
     
     /**
-     获取“宿主导航栈”（对齐 Android：像打开一个页面，而不是弹窗）。
+     获取宿主导航栈
      
      说明：
      - 宿主传入的 VC 可能是：`UINavigationController` / `UITabBarController` / 普通 VC / 多层容器。

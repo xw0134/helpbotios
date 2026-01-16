@@ -198,12 +198,7 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
     }
 
     func showConversation() {
-        guard let top = UIApplication.shared.hbTopViewController() else {
-            appendLog("OpenConversation: failure=找不到 topViewController")
-            updateStatus("状态：OpenConversation 失败: 找不到 topViewController")
-            return
-        }
-        let r = HelpBot.showConversation(from: top)
+        let r = HelpBot.showConversation()
         if r.isSuccess {
             appendLog("OpenConversation: success（若 install/login 未完成可能为入队等待）")
             updateStatus("状态：OpenConversation 已触发")
@@ -274,12 +269,8 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
         updateStatus("状态：负向用例执行中...")
 
         // 1) 未登录/未 install 直接 showConversation
-        if let top = UIApplication.shared.hbTopViewController() {
-            let r = HelpBot.showConversation(from: top)
-            appendLog("Negative.showConversationWithoutLogin: success=\(r.isSuccess) err=\(r.errorMessage ?? "")")
-        } else {
-            appendLog("Negative.showConversationWithoutLogin: skip（找不到 topViewController）")
-        }
+        let r0 = HelpBot.showConversation()
+        appendLog("Negative.showConversationWithoutLogin: success=\(r0.isSuccess) err=\(r0.errorMessage ?? "")")
 
         // 2) login 空 token
         HelpBot.login("") { [weak self] result in
@@ -305,15 +296,11 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
 
     func testOtherUIAPIs() {
         appendLog("========== 测试：其他UI接口 ==========")
-        guard let top = UIApplication.shared.hbTopViewController() else {
-            appendLog("showFAQs/FAQSection/SingleFAQ 失败：找不到 topViewController")
-            return
-        }
-        let r1 = HelpBot.showFAQs(from: top, config: ["tn": "68018901_16_pg"])
+        let r1 = HelpBot.showFAQs(config: ["tn": "68018901_16_pg"])
         appendLog("showFAQs: \(r1.isSuccess ? "success" : "fail") \(r1.errorMessage ?? "")")
-        let r2 = HelpBot.showFAQSection(from: top, sectionPublishId: "test_section_id", config: ["tn": "68018901_16_pg"])
+        let r2 = HelpBot.showFAQSection(sectionPublishId: "test_section_id", config: ["tn": "68018901_16_pg"])
         appendLog("showFAQSection: \(r2.isSuccess ? "success" : "fail") \(r2.errorMessage ?? "")")
-        let r3 = HelpBot.showSingleFAQ(from: top, questionPublishId: "test_question_id", config: ["tn": "68018901_16_pg"])
+        let r3 = HelpBot.showSingleFAQ(questionPublishId: "test_question_id", config: ["tn": "68018901_16_pg"])
         appendLog("showSingleFAQ: \(r3.isSuccess ? "success" : "fail") \(r3.errorMessage ?? "")")
     }
 
@@ -427,17 +414,12 @@ final class HelpBotDemoViewModel: NSObject, ObservableObject {
             guard let self = self else { return }
             if !self.stressRunning { return }
             self.stressLoopCount += 1
-            if let top = UIApplication.shared.hbTopViewController() {
-                let open = HelpBot.showConversation(from: top)
-                if open.isSuccess {
-                    self.stressSuccessCount += 1
-                } else {
-                    self.stressFailureCount += 1
-                    self.appendLog("Stress.open fail: \(open.errorMessage ?? "")")
-                }
+            let open = HelpBot.showConversation()
+            if open.isSuccess {
+                self.stressSuccessCount += 1
             } else {
                 self.stressFailureCount += 1
-                self.appendLog("Stress.open fail: 找不到 topViewController")
+                self.appendLog("Stress.open fail: \(open.errorMessage ?? "")")
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in

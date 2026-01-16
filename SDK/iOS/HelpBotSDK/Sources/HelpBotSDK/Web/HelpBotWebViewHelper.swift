@@ -63,7 +63,7 @@ enum HelpBotWebViewHelper {
         // WebView UI 兜底（对齐 Android showConversation：全宽、避免水平滚动条、避免裁剪）
         // 说明：
         // - WebChat 页面为远端内容，理论上应自行提供正确的 viewport
-        // - 但为满足 SDK 交付稳定性，这里做“非侵入式”兜底：仅处理 overflow-x 与 viewport 缺失场景
+        // - 处理 overflow-x 与 viewport 缺失场景
         controller.addUserScript(WKUserScript(
             source: buildViewportAndNoHorizontalScrollInjectionJs(),
             injectionTime: .atDocumentStart,
