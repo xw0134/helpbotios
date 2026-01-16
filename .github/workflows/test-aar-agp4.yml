@@ -2,7 +2,7 @@ name: Test AAR Compatibility - AGP 4.2.2
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, ci/ios-actions-gha ]
     paths:
       - 'HelpBot/**'
       - 'test/**'
