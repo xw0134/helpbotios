@@ -1,0 +1,545 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 5.9.2 (swiftlang-5.9.2.2.56 clang-1500.1.0.2.5)
+// swift-module-flags: -target arm64-apple-ios12.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -module-name HelpBotSDK
+import CoreTelephony
+import Foundation
+import Network
+import Security
+import Swift
+import SystemConfiguration
+import UIKit
+import UniformTypeIdentifiers
+import UserNotifications
+import WebKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@_hasMissingDesignatedInitializers final public class EventProxy {
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class WebViewConsoleLogger {
+  public static func logConsoleMessage(_ message: Swift.String, level: Swift.String = "log", sourceURL: Swift.String? = nil, lineNumber: Swift.Int? = nil)
+  public static func logFromScriptMessage(_ message: WebKit.WKScriptMessage)
+  public static func createConsoleInterceptScript() -> Swift.String
+  @objc deinit
+}
+public protocol Device {
+  func getDeviceModel() -> Swift.String
+  func getOSVersion() -> Swift.String
+  func getDeviceId() -> Swift.String
+  func getDeviceName() -> Swift.String
+  func getScreenWidth() -> Swift.Int
+  func getScreenHeight() -> Swift.Int
+  func getScreenDensity() -> Swift.Float
+  func getDeviceLanguage() -> Swift.String
+  func getDeviceRegion() -> Swift.String
+  func getAppVersion() -> Swift.String
+  func getAppBuildNumber() -> Swift.String
+  func getBundleId() -> Swift.String
+  func isSimulator() -> Swift.Bool
+}
+public enum HelpBotAuthenticationFailureReason : Swift.String, Swift.Codable {
+  case invalidIdentityToken
+  case iatIsMandatory
+  case identityDataInvalid
+  case identityDataLimitExceeded
+  case identityDataSyncFailed
+  case appAttributesLimitExceeded
+  case masterAttributesLimitExceeded
+  case appAttributesValidationFailed
+  case masterAttributesValidationFailed
+  case appAttributesSyncFailed
+  case masterAttributesSyncFailed
+  case identityFeatureNotEnabled
+  case userSessionExpired
+  case tokenExpired
+  case tokenRefreshFailed
+  case notAuthenticated
+  case unknown
+  public static func from(_ raw: Swift.String?) -> HelpBotSDK.HelpBotAuthenticationFailureReason
+  public init?(rawValue: Swift.String)
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers final public class HelpBotConfig {
+  final public let channelId: Swift.String
+  final public let domain: Swift.String
+  final public let fullPrivacyMode: Swift.Bool
+  final public let enableSseNotification: Swift.Bool
+  final public let initTimeoutMs: Swift.Int
+  final public let webViewLoadTimeoutMs: Swift.Int
+  final public let customConfig: [Swift.String : Any]
+  final public let useDevApi: Swift.Bool
+  final public let companyId: Swift.String?
+  final public let userId: Swift.String?
+  final public let preGeneratedToken: Swift.String?
+  final public class Builder {
+    public init()
+    @discardableResult
+    final public func channelId(_ channelId: Swift.String) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func domain(_ domain: Swift.String) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func fullPrivacyMode(_ enabled: Swift.Bool) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func enableSseNotification(_ enabled: Swift.Bool) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func initTimeoutMs(_ timeoutMs: Swift.Int) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func webViewLoadTimeoutMs(_ timeoutMs: Swift.Int) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func addCustomConfig(_ key: Swift.String, _ value: Any) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func useDevApi(_ enabled: Swift.Bool) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func companyId(_ companyId: Swift.String) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func userId(_ userId: Swift.String) -> HelpBotSDK.HelpBotConfig.Builder
+    @discardableResult
+    final public func preGeneratedToken(_ token: Swift.String) -> HelpBotSDK.HelpBotConfig.Builder
+    final public func build() throws -> HelpBotSDK.HelpBotConfig
+    @objc deinit
+  }
+  @objc deinit
+}
+public enum HelpBotConfigError : Swift.Error {
+  case invalidChannelId
+  case invalidDomain
+  case missingCompanyId
+  case missingUserId
+  public static func == (a: HelpBotSDK.HelpBotConfigError, b: HelpBotSDK.HelpBotConfigError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers final public class HelpBotContext {
+  public static func getInstance() -> HelpBotSDK.HelpBotContext?
+  public static func initInstance(config: HelpBotSDK.HelpBotConfig)
+  public static func destroy()
+  public static func isInstalled() -> Swift.Bool
+  public static func setInstalled(_ installed: Swift.Bool)
+  public static func isInstallInProgress() -> Swift.Bool
+  public static func setInstallInProgress(_ inProgress: Swift.Bool)
+  final public func getEventProxy() -> HelpBotSDK.EventProxy
+  final public func setEventsListener(_ listener: (any HelpBotSDK.HelpBotEventsListener)?)
+  final public func getConfig() -> HelpBotSDK.HelpBotConfig?
+  final public func initialiseComponents()
+  @objc deinit
+}
+public enum HelpBotErrorCode : Swift.Int, Swift.Codable {
+  case sdkNotInitialized
+  case sdkAlreadyInitialized
+  case invalidParameter
+  case contextNull
+  case invalidChannelId
+  case invalidDomain
+  case webViewUnavailable
+  case webViewInitFailed
+  case webViewLoadTimeout
+  case webViewLoadFailed
+  case webViewDestroyed
+  case networkUnavailable
+  case networkRequestFailed
+  case networkTimeout
+  case invalidToken
+  case tokenExpired
+  case notLoggedIn
+  case loginFailed
+  case missingPreGeneratedToken
+  case invalidPreGeneratedToken
+  case alreadyLoggedIn
+  case storageFailed
+  case readFailed
+  case encryptionFailed
+  case decryptionFailed
+  case permissionDenied
+  case permissionRequired
+  case unknownError
+  case internalError
+  case operationTimeout
+  case operationCancelled
+  case operationInProgress
+  case notSupported
+  case operationNotAllowed
+  public var message: Swift.String {
+    get
+  }
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers final public class HelpBotEvent {
+  public static let WIDGET_TOGGLE: Swift.String
+  public static let DATA_SDK_VISIBLE: Swift.String
+  public static let ACTION_CLICKED: Swift.String
+  public static let DATA_ACTION_TYPE: Swift.String
+  public static let DATA_ACTION_TYPE_CALL: Swift.String
+  public static let DATA_ACTION_TYPE_LINK: Swift.String
+  public static let DATA_ACTION: Swift.String
+  public static let CONVERSATION_START: Swift.String
+  public static let DATA_MESSAGE: Swift.String
+  public static let AGENT_MESSAGE_RECEIVED: Swift.String
+  public static let DATA_PUBLISH_ID: Swift.String
+  public static let DATA_CREATED_TIME: Swift.String
+  public static let DATA_ATTACHMENTS: Swift.String
+  public static let DATA_URL: Swift.String
+  public static let DATA_CONTENT_TYPE: Swift.String
+  public static let DATA_FILE_NAME: Swift.String
+  public static let DATA_SIZE: Swift.String
+  public static let DATA_MESSAGE_TYPE_APP_REVIEW_REQUEST: Swift.String
+  public static let DATA_MESSAGE_TYPE_SCREENSHOT_REQUEST: Swift.String
+  public static let MESSAGE_ADD: Swift.String
+  public static let DATA_MESSAGE_TYPE: Swift.String
+  public static let DATA_MESSAGE_BODY: Swift.String
+  public static let DATA_MESSAGE_TYPE_ATTACHMENT: Swift.String
+  public static let DATA_MESSAGE_TYPE_TEXT: Swift.String
+  public static let CSAT_SUBMIT: Swift.String
+  public static let DATA_CSAT_RATING: Swift.String
+  public static let DATA_ADDITIONAL_FEEDBACK: Swift.String
+  public static let CONVERSATION_STATUS: Swift.String
+  public static let DATA_LATEST_ISSUE_ID: Swift.String
+  public static let DATA_LATEST_ISSUE_PUBLISH_ID: Swift.String
+  public static let DATA_IS_ISSUE_OPEN: Swift.String
+  public static let CONVERSATION_END: Swift.String
+  public static let CONVERSATION_REJECTED: Swift.String
+  public static let CONVERSATION_RESOLVED: Swift.String
+  public static let CONVERSATION_REOPENED: Swift.String
+  public static let SDK_SESSION_STARTED: Swift.String
+  public static let SDK_SESSION_ENDED: Swift.String
+  public static let RECEIVED_UNREAD_MESSAGE_COUNT: Swift.String
+  public static let DATA_MESSAGE_COUNT: Swift.String
+  public static let DATA_MESSAGE_COUNT_FROM_CACHE: Swift.String
+  public static let USER_SESSION_EXPIRED: Swift.String
+  public static let IDENTITY_FEATURE_NOT_ENABLED: Swift.String
+  public static let REFRESH_USER_CREDENTIALS: Swift.String
+  public static let MASTER_ATTRIBUTES_VALIDATION_FAILED: Swift.String
+  public static let MASTER_ATTRIBUTES_SYNC_FAILED: Swift.String
+  public static let MASTER_ATTRIBUTES_LIMIT_EXCEEDED: Swift.String
+  public static let APP_ATTRIBUTES_VALIDATION_FAILED: Swift.String
+  public static let APP_ATTRIBUTES_LIMIT_EXCEEDED: Swift.String
+  public static let APP_ATTRIBUTES_SYNC_FAILED: Swift.String
+  public static let IDENTITY_DATA_INVALID: Swift.String
+  public static let IDENTITY_DATA_SYNC_FAILED: Swift.String
+  public static let IDENTITY_DATA_LIMIT_EXCEEDED: Swift.String
+  public static let INVALID_IDENTITY_TOKEN: Swift.String
+  public static let IAT_IS_MANDATORY: Swift.String
+  @objc deinit
+}
+public protocol HelpBotEventsListener : AnyObject {
+  func onEventOccurred(_ eventName: Swift.String, _ data: [Swift.String : Any]?)
+  func onUserAuthenticationFailure(_ reason: HelpBotSDK.HelpBotAuthenticationFailureReason)
+}
+public protocol HelpBotInitCallback : AnyObject {
+  func onInitStart()
+  func onInitProgress(_ progress: Swift.Int, _ message: Swift.String)
+  func onInitSuccess()
+  func onInitFailure(_ errorCode: HelpBotSDK.HelpBotErrorCode, _ errorMessage: Swift.String)
+}
+public struct HelpBotResult<T> {
+  public let data: T?
+  public let errorCode: HelpBotSDK.HelpBotErrorCode?
+  public let errorMessage: Swift.String?
+  public var isSuccess: Swift.Bool {
+    get
+  }
+  public static func success(_ data: T? = nil) -> HelpBotSDK.HelpBotResult<T>
+  public static func failure(_ code: HelpBotSDK.HelpBotErrorCode, _ message: Swift.String? = nil) -> HelpBotSDK.HelpBotResult<T>
+}
+public protocol HelpBotCallback : AnyObject {
+  associatedtype T
+  func onSuccess(_ result: Self.T?)
+  func onFailure(_ errorCode: HelpBotSDK.HelpBotErrorCode, _ errorMessage: Swift.String)
+}
+public protocol HelpBotUserLoginEventsListener : AnyObject {
+  func onUserLoginSuccess()
+  func onUserLoginFailure(_ reason: HelpBotSDK.HelpBotAuthenticationFailureReason)
+  func onUserLogout()
+}
+@_hasMissingDesignatedInitializers final public class IOSDevice : HelpBotSDK.Device {
+  public static let shared: HelpBotSDK.IOSDevice
+  final public func getDeviceModel() -> Swift.String
+  final public func getOSVersion() -> Swift.String
+  final public func getDeviceId() -> Swift.String
+  final public func getDeviceName() -> Swift.String
+  final public func getScreenWidth() -> Swift.Int
+  final public func getScreenHeight() -> Swift.Int
+  final public func getScreenDensity() -> Swift.Float
+  final public func getDeviceLanguage() -> Swift.String
+  final public func getDeviceRegion() -> Swift.String
+  final public func getAppVersion() -> Swift.String
+  final public func getAppBuildNumber() -> Swift.String
+  final public func getBundleId() -> Swift.String
+  final public func isSimulator() -> Swift.Bool
+  final public func getDeviceTypeName() -> Swift.String
+  final public func getSystemName() -> Swift.String
+  final public func getBatteryLevel() -> Swift.Float
+  final public func getBatteryState() -> Swift.String
+  final public func getTotalDiskSpace() -> Swift.String
+  final public func getFreeDiskSpace() -> Swift.String
+  final public func getCarrierName() -> Swift.String
+  final public func getAvailableMemory() -> Swift.UInt64
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class HelpBot {
+  public static func initLogger(_ logger: (any HelpBotSDK.IHBLogger)?)
+  public static func setEventsListener(_ listener: (any HelpBotSDK.HelpBotEventsListener)?)
+  public static func install(channelId: Swift.String, domain: Swift.String, configMap: [Swift.String : Any]?, callback: (any HelpBotSDK.HelpBotInitCallback)?)
+  public static func install(config: HelpBotSDK.HelpBotConfig, callback: (any HelpBotSDK.HelpBotInitCallback)?)
+  public static func login(_ identitiesJwt: Swift.String, completion: ((HelpBotSDK.HelpBotResult<Swift.Void>) -> Swift.Void)? = nil)
+  @discardableResult
+  public static func showConversation(from viewController: UIKit.UIViewController) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  @discardableResult
+  public static func hideConversation() -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func logout(completion: ((HelpBotSDK.HelpBotResult<Swift.Void>) -> Swift.Void)? = nil)
+  public static func isConversationVisible() -> Swift.Bool
+  @discardableResult
+  public static func showFAQs(from viewController: UIKit.UIViewController, config: [Swift.String : Any]? = nil) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  @discardableResult
+  public static func showFAQSection(from viewController: UIKit.UIViewController, sectionPublishId: Swift.String, config: [Swift.String : Any]? = nil) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  @discardableResult
+  public static func showSingleFAQ(from viewController: UIKit.UIViewController, questionPublishId: Swift.String, config: [Swift.String : Any]? = nil) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func destroy(completion: ((HelpBotSDK.HelpBotResult<Swift.Void>) -> Swift.Void)? = nil)
+  public static func getSDKVersion() -> Swift.String
+  public static func updateSDKMeta(_ meta: [Swift.String : Any]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func updateCustomMeta(_ meta: [Swift.String : Any]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func reportSystemInfoToServer() -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func setNotificationSmallIconResId(_ resId: Swift.Int)
+  public static func setNotificationChannelId(_ channelId: Swift.String)
+  public static func closeSession() -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func verifyInstall() -> Swift.Bool
+  public static func isInitialized() -> Swift.Bool
+  public static func getConfig() -> HelpBotSDK.HelpBotConfig?
+  public static func getWebSdkHealthSnapshot() -> [Swift.String : Any]
+  public static func clearWebViewData(completion: ((HelpBotSDK.HelpBotResult<Swift.Void>) -> Swift.Void)? = nil)
+  public static func getWebViewSecurityBaselineSnapshot() -> [Swift.String : Any]
+  public static func enableSseNotification()
+  public static func disableSseNotification()
+  public static func isSseNotificationEnabled() -> Swift.Bool
+  public static func enableSseNotification(_ enable: Swift.Bool)
+  public static func setUserLoginEventsListener(_ listener: (any HelpBotSDK.HelpBotUserLoginEventsListener)?)
+  public static func clearAnonymousUser(completion: ((HelpBotSDK.HelpBotResult<Swift.Void>) -> Swift.Void)? = nil)
+  public static func sendMessageAsync(_ message: Swift.String, completion: ((HelpBotSDK.HelpBotResult<[Swift.String : Any]>) -> Swift.Void)? = nil)
+  public static func getHistoryMessagesAsync(completion: ((HelpBotSDK.HelpBotResult<[Swift.String : Any]>) -> Swift.Void)? = nil)
+  public static func loadMoreMessagesAsync(limit: Swift.Int, offset: Swift.Int, completion: ((HelpBotSDK.HelpBotResult<[Swift.String : Any]>) -> Swift.Void)? = nil)
+  public static func updateUserMeta(_ meta: [Swift.String : Any]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func updateUserSdkMeta(_ meta: [Swift.String : Any]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func addIssueTags(_ tags: [Swift.String]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func removeIssueTags(_ tags: [Swift.String]) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  public static func getWEBSDKVersion() -> Swift.String
+  @discardableResult
+  public static func addUserIdentity(_ identifier: Swift.String, _ value: Swift.String) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  @discardableResult
+  public static func setUserLanguage(_ language: Swift.String) -> HelpBotSDK.HelpBotResult<Swift.Void>
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class HBlogger {
+  public static func initLoggerIfAbsent(_ logger: (any HelpBotSDK.IHBLogger)?)
+  public static func isInitialized() -> Swift.Bool
+  public static func d(_ tag: Swift.String, _ msg: Swift.String, _ error: (any Swift.Error)? = nil)
+  public static func i(_ tag: Swift.String, _ msg: Swift.String, _ error: (any Swift.Error)? = nil)
+  public static func w(_ tag: Swift.String, _ msg: Swift.String, _ error: (any Swift.Error)? = nil)
+  public static func e(_ tag: Swift.String, _ msg: Swift.String, _ error: (any Swift.Error)? = nil)
+  public static func sanitizeValue(_ value: Swift.String?) -> Swift.String
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class HelpBotLogger {
+  public static func setLogger(_ logger: (any HelpBotSDK.IHBLogger)?)
+  public static func debug(_ tag: Swift.String, _ message: Swift.String)
+  public static func info(_ tag: Swift.String, _ message: Swift.String)
+  public static func warning(_ tag: Swift.String, _ message: Swift.String)
+  public static func error(_ tag: Swift.String, _ message: Swift.String)
+  public static func error(_ tag: Swift.String, _ message: Swift.String, _ error: any Swift.Error)
+  public static func format(_ format: Swift.String, _ args: any Swift.CVarArg...) -> Swift.String
+  public static func logMethodCall(_ tag: Swift.String, _ methodName: Swift.String, parameters: [Swift.String : Any]? = nil)
+  public static func logMethodReturn(_ tag: Swift.String, _ methodName: Swift.String, result: Any? = nil)
+  @objc deinit
+}
+public protocol IHBLogger : AnyObject {
+  func d(_ tag: Swift.String, _ message: Swift.String, _ error: (any Swift.Error)?)
+  func w(_ tag: Swift.String, _ message: Swift.String, _ error: (any Swift.Error)?)
+  func e(_ tag: Swift.String, _ message: Swift.String, _ error: (any Swift.Error)?)
+}
+@objc(HBHelpBotInitDelegate) public protocol HBHelpBotInitDelegate : ObjectiveC.NSObjectProtocol {
+  @objc optional func onInitStart()
+  @objc optional func onInitProgress(_ progress: Swift.Int, message: Swift.String)
+  @objc optional func onInitSuccess()
+  @objc optional func onInitFailure(_ errorCode: Swift.Int, message: Swift.String)
+}
+@objc(HBHelpBotEventsDelegate) public protocol HBHelpBotEventsDelegate : ObjectiveC.NSObjectProtocol {
+  @objc optional func onEventOccurred(_ eventName: Swift.String, data: Foundation.NSDictionary?)
+  @objc optional func onUserAuthenticationFailure(_ reason: Swift.String)
+}
+@objc @_inheritsConvenienceInitializers @_hasMissingDesignatedInitializers @objcMembers final public class HBHelpBot : ObjectiveC.NSObject {
+  @objc(HBHelpBotResult) final public class Result : ObjectiveC.NSObject {
+    @objc final public let success: Swift.Bool
+    @objc final public let errorCode: Swift.Int
+    @objc final public let errorMessage: Swift.String?
+    @objc public init(success: Swift.Bool, errorCode: Swift.Int, errorMessage: Swift.String?)
+    @objc deinit
+  }
+  @objc public static func sdkVersion() -> Swift.String
+  @objc public static func setEventsDelegate(_ delegate: (any HelpBotSDK.HBHelpBotEventsDelegate)?)
+  @objc public static func install(channelId: Swift.String, domain: Swift.String, configMap: Foundation.NSDictionary?, delegate: (any HelpBotSDK.HBHelpBotInitDelegate)?)
+  @objc public static func login(_ token: Swift.String, completion: ((HelpBotSDK.HBHelpBot.Result) -> Swift.Void)?)
+  @objc public static func showConversation(from viewController: UIKit.UIViewController)
+  @objc public static func hideConversation()
+  @objc public static func logout(_ completion: ((HelpBotSDK.HBHelpBot.Result) -> Swift.Void)?)
+  @objc public static func destroy(_ completion: ((HelpBotSDK.HBHelpBot.Result) -> Swift.Void)?)
+  @objc public static func reportSystemInfoToServer() -> HelpBotSDK.HBHelpBot.Result
+  @objc deinit
+}
+final public class EncryptedStorage {
+  public init(service: Swift.String, accessGroup: Swift.String? = nil)
+  public static let shared: HelpBotSDK.EncryptedStorage
+  @discardableResult
+  final public func putString(_ key: Swift.String, _ value: Swift.String) -> Swift.Bool
+  final public func getString(_ key: Swift.String) -> Swift.String?
+  @discardableResult
+  final public func putData(_ key: Swift.String, _ value: Foundation.Data) -> Swift.Bool
+  final public func getData(_ key: Swift.String) -> Foundation.Data?
+  @discardableResult
+  final public func putObject<T>(_ key: Swift.String, _ value: T) -> Swift.Bool where T : Swift.Decodable, T : Swift.Encodable
+  final public func getObject<T>(_ key: Swift.String, type: T.Type) -> T? where T : Swift.Decodable, T : Swift.Encodable
+  @discardableResult
+  final public func remove(_ key: Swift.String) -> Swift.Bool
+  final public func contains(_ key: Swift.String) -> Swift.Bool
+  @discardableResult
+  final public func clear() -> Swift.Bool
+  @objc deinit
+}
+final public class HBGenericDataManager {
+  public init(persistentStorage: HelpBotSDK.HBPersistentStorage = .shared, encryptedStorage: HelpBotSDK.EncryptedStorage = .shared)
+  public static let shared: HelpBotSDK.HBGenericDataManager
+  @discardableResult
+  final public func saveString(_ key: Swift.String, _ value: Swift.String) -> Swift.Bool
+  final public func loadString(_ key: Swift.String, defaultValue: Swift.String? = nil) -> Swift.String?
+  @discardableResult
+  final public func saveInt(_ key: Swift.String, _ value: Swift.Int) -> Swift.Bool
+  final public func loadInt(_ key: Swift.String, defaultValue: Swift.Int = 0) -> Swift.Int
+  @discardableResult
+  final public func saveBool(_ key: Swift.String, _ value: Swift.Bool) -> Swift.Bool
+  final public func loadBool(_ key: Swift.String, defaultValue: Swift.Bool = false) -> Swift.Bool
+  @discardableResult
+  final public func saveSecureString(_ key: Swift.String, _ value: Swift.String) -> Swift.Bool
+  final public func loadSecureString(_ key: Swift.String) -> Swift.String?
+  @discardableResult
+  final public func saveSecureObject<T>(_ key: Swift.String, _ value: T) -> Swift.Bool where T : Swift.Decodable, T : Swift.Encodable
+  final public func loadSecureObject<T>(_ key: Swift.String, type: T.Type) -> T? where T : Swift.Decodable, T : Swift.Encodable
+  @discardableResult
+  final public func remove(_ key: Swift.String) -> Swift.Bool
+  @discardableResult
+  final public func removeSecure(_ key: Swift.String) -> Swift.Bool
+  @discardableResult
+  final public func clearAll() -> Swift.Bool
+  final public func contains(_ key: Swift.String) -> Swift.Bool
+  final public func containsSecure(_ key: Swift.String) -> Swift.Bool
+  @objc deinit
+}
+final public class HBPersistentStorage {
+  public init(suiteName: Swift.String? = nil)
+  public static let shared: HelpBotSDK.HBPersistentStorage
+  @discardableResult
+  final public func putString(_ key: Swift.String, _ value: Swift.String) -> Swift.Bool
+  final public func getString(_ key: Swift.String, defaultValue: Swift.String? = nil) -> Swift.String?
+  @discardableResult
+  final public func putInt(_ key: Swift.String, _ value: Swift.Int) -> Swift.Bool
+  final public func getInt(_ key: Swift.String, defaultValue: Swift.Int = 0) -> Swift.Int
+  @discardableResult
+  final public func putBool(_ key: Swift.String, _ value: Swift.Bool) -> Swift.Bool
+  final public func getBool(_ key: Swift.String, defaultValue: Swift.Bool = false) -> Swift.Bool
+  @discardableResult
+  final public func putDouble(_ key: Swift.String, _ value: Swift.Double) -> Swift.Bool
+  final public func getDouble(_ key: Swift.String, defaultValue: Swift.Double = 0.0) -> Swift.Double
+  @discardableResult
+  final public func putData(_ key: Swift.String, _ value: Foundation.Data) -> Swift.Bool
+  final public func getData(_ key: Swift.String) -> Foundation.Data?
+  @discardableResult
+  final public func putObject<T>(_ key: Swift.String, _ value: T) -> Swift.Bool where T : Swift.Decodable, T : Swift.Encodable
+  final public func getObject<T>(_ key: Swift.String, type: T.Type) -> T? where T : Swift.Decodable, T : Swift.Encodable
+  @discardableResult
+  final public func remove(_ key: Swift.String) -> Swift.Bool
+  final public func contains(_ key: Swift.String) -> Swift.Bool
+  @discardableResult
+  final public func clear() -> Swift.Bool
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class HelpBotThreadPool {
+  public static let shared: HelpBotSDK.HelpBotThreadPool
+  final public func submit(_ task: @escaping () -> Swift.Void)
+  final public func submitHighPriority(_ task: @escaping () -> Swift.Void)
+  final public func submitLowPriority(_ task: @escaping () -> Swift.Void)
+  final public func submitDelayed(delay: Foundation.TimeInterval, _ task: @escaping () -> Swift.Void)
+  final public func runOnMainThread(_ task: @escaping () -> Swift.Void)
+  final public func executeSync<T>(_ task: () -> T) -> T
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class ApplicationUtils {
+  public static func isApplicationInDebugMode() -> Swift.Bool
+  public static func getAppVersion() -> Swift.String?
+  public static func getAppBuildNumber() -> Swift.String?
+  public static func getBundleIdentifier() -> Swift.String?
+  public static func getAppName() -> Swift.String?
+  public static func getDeviceLanguage() -> Swift.String
+  public static func getDeviceRegion() -> Swift.String?
+  public static func isNotificationPermissionGranted(completion: @escaping (Swift.Bool) -> Swift.Void)
+  public static func requestNotificationPermission(completion: @escaping (Swift.Bool) -> Swift.Void)
+  public static func getKeyWindow() -> UIKit.UIWindow?
+  public static func getTopViewController() -> UIKit.UIViewController?
+  public static func runOnMainThread(_ block: @escaping () -> Swift.Void)
+  public static func runOnBackgroundThread(_ block: @escaping () -> Swift.Void)
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class HelpBotJsonUtils {
+  public static func toJsonString(_ object: Any) -> Swift.String?
+  public static func toDictionary(_ jsonString: Swift.String?) -> [Swift.String : Any]?
+  public static func toArray(_ jsonString: Swift.String?) -> [Any]?
+  public static func dictionaryToModel<T>(_ dictionary: [Swift.String : Any], type: T.Type) -> T? where T : Swift.Decodable, T : Swift.Encodable
+  public static func modelToDictionary<T>(_ model: T) -> [Swift.String : Any]? where T : Swift.Decodable, T : Swift.Encodable
+  public static func parseJsonObject(_ jsonString: Swift.String?) -> [Swift.String : Any]?
+  public static func normalizeEventData(_ raw: Any?) -> [Swift.String : Any]?
+  @objc deinit
+}
+public enum HelpBotSDKUrls {
+  public static let webChatIndex: Swift.String
+  public static let webChatLoaderJs: Swift.String
+}
+@_hasMissingDesignatedInitializers final public class NetworkUtils {
+  public struct NetworkDiagnosis {
+    public let hasAccessNetworkStatePermission: Swift.Bool
+    public let networkConnected: Swift.Bool
+    public let hasInternetCapability: Swift.Bool
+    public let validated: Swift.Bool
+    public let transport: Swift.String?
+    public func buildUserHint() -> Swift.String
+  }
+  public static func diagnose() -> HelpBotSDK.NetworkUtils.NetworkDiagnosis
+  public static func isNetworkAvailable() -> Swift.Bool
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class Utils {
+  public static func isEmpty(_ string: Swift.String?) -> Swift.Bool
+  public static func isEmpty<T>(_ array: [T]?) -> Swift.Bool
+  public static func isEmpty<K, V>(_ dictionary: [K : V]?) -> Swift.Bool where K : Swift.Hashable
+  public static func getString(_ dictionary: [Swift.String : Any]?, key: Swift.String, defaultValue: Swift.String = "") -> Swift.String
+  public static func getInt(_ dictionary: [Swift.String : Any]?, key: Swift.String, defaultValue: Swift.Int = 0) -> Swift.Int
+  public static func getBool(_ dictionary: [Swift.String : Any]?, key: Swift.String, defaultValue: Swift.Bool = false) -> Swift.Bool
+  public static func generateUUID() -> Swift.String
+  public static func currentTimeMillis() -> Swift.Int64
+  public static func delay(_ delay: Foundation.TimeInterval, block: @escaping () -> Swift.Void)
+  public static func urlEncode(_ string: Swift.String) -> Swift.String?
+  public static func urlDecode(_ string: Swift.String) -> Swift.String?
+  @objc deinit
+}
+extension HelpBotSDK.HelpBotAuthenticationFailureReason : Swift.Equatable {}
+extension HelpBotSDK.HelpBotAuthenticationFailureReason : Swift.Hashable {}
+extension HelpBotSDK.HelpBotAuthenticationFailureReason : Swift.RawRepresentable {}
+extension HelpBotSDK.HelpBotConfigError : Swift.Equatable {}
+extension HelpBotSDK.HelpBotConfigError : Swift.Hashable {}
+extension HelpBotSDK.HelpBotErrorCode : Swift.Equatable {}
+extension HelpBotSDK.HelpBotErrorCode : Swift.Hashable {}
+extension HelpBotSDK.HelpBotErrorCode : Swift.RawRepresentable {}

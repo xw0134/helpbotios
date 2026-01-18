@@ -1,0 +1,5 @@
+framework module HelpBotSDK {
+  umbrella header "HelpBotSDK.h"
+  export *
+  module * { export * }
+}

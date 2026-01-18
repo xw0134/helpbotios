@@ -1,0 +1,18 @@
+HelpBot SDK for Cocos2d Creator
+Version: 0.1.14
+Release Date: 2026-01-18
+Build: Release
+
+Components:
+- Android Core SDK: HelpBot-release-0.1.14.aar
+- Android Bridge: HelpBotCocosBridge-release.aar
+- iOS Framework: HelpBotSDK.xcframework
+- iOS Bridge: HelpBotCocosBridge.swift
+- TypeScript SDK: Complete
+
+Compatibility:
+- Cocos Creator: 2.4.x, 3.x
+- Android: API 21+ (Android 5.0+)
+- iOS: 12.0+
+
+© 2026 HelpBot SDK Team. All rights reserved.
