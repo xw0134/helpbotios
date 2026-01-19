@@ -160,6 +160,42 @@ public final class ApplicationUtils {
         return getTopViewController(from: rootViewController, depth: 0, visited: [])
     }
     
+    /**
+     获取“可用于 present 的”顶层 ViewController。
+     
+     设计目标（对齐 Android 一键 show 的稳定性）：
+     - 避免返回 `UIAlertController` 等不可作为 presenter 的 VC（会导致 present 失败，表现为“调用 show 不弹窗”）。
+     - 避免返回正在 dismiss/不在 window 上的 VC。
+     
+     - Returns: 可用于 `present(...)` 的顶层 VC（可能为 topVC 的 presentingVC/祖先）
+     */
+    public static func getTopViewControllerForPresentation() -> UIViewController? {
+        guard var vc = getTopViewController() else { return nil }
+        var depth = 0
+        while depth < 12 {
+            // 1) UIAlertController 不能作为新的 presenter，应该回退到其 presentingViewController
+            if vc is UIAlertController, let p = vc.presentingViewController {
+                vc = p
+                depth += 1
+                continue
+            }
+            // 2) 正在 dismiss 的 VC 也不适合 present
+            if vc.isBeingDismissed, let p = vc.presentingViewController {
+                vc = p
+                depth += 1
+                continue
+            }
+            // 3) view 不在 window：回退到 presentingVC（若可用）
+            if let v = vc.viewIfLoaded, v.window == nil, let p = vc.presentingViewController {
+                vc = p
+                depth += 1
+                continue
+            }
+            break
+        }
+        return vc
+    }
+    
     private static func getTopViewController(
         from viewController: UIViewController,
         depth: Int,

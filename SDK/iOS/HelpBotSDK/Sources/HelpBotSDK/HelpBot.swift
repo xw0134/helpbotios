@@ -145,7 +145,7 @@ public final class HelpBot {
             return
         }
         
-        guard let top = ApplicationUtils.getTopViewController() else {
+        guard let top = ApplicationUtils.getTopViewControllerForPresentation() else {
             HBlogger.d(tag, "tryRunPendingShowConversationIfPossible(\(trigger)): topViewController is nil, wait", nil)
             return
         }
@@ -455,7 +455,7 @@ public final class HelpBot {
         operationLock.unlock()
         
         // install/login 已满足：尝试直接展示；若取不到 topVC，入队等待
-        guard let top = ApplicationUtils.getTopViewController() else {
+        guard let top = ApplicationUtils.getTopViewControllerForPresentation() else {
             operationLock.lock()
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
@@ -1403,6 +1403,17 @@ public final class HelpBot {
             return
         }
         
+        // 选择一个“真正可用于 present 的 presenter”（避免 UIAlertController / dismiss 过渡 / 不在 window）
+        guard let presenter = resolvePresenterForPresentation(from: viewController) else {
+            // presenter 不可用：入队等待 app active 后重试（对齐 Android：尽量保证最终可展示）
+            ensureAppLifecycleObserverInstalled()
+            operationLock.lock()
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            HBlogger.w(tag, "showConversation: presenter 不可用，已入队等待重试", nil)
+            return
+        }
+        
         // 对齐 Android：showConversation 时尝试上报系统信息（失败不影响展示）
         _ = reportSystemInfoToServer()
 
@@ -1412,7 +1423,9 @@ public final class HelpBot {
 
        
         // 说明：viewController 可能本身就是 UINavigationController/UITabBarController；因此必须做一次更稳的解析。
-        if let hostNav = ApplicationUtils.getHostNavigationController(from: viewController) {
+        if let hostNav = ApplicationUtils.getHostNavigationController(from: presenter),
+           hostNav.viewIfLoaded?.window != nil,
+           !hostNav.isBeingDismissed {
             HBlogger.i(tag, "show", nil)
             hostNav.pushViewController(vc, animated: true)
             return
@@ -1424,12 +1437,41 @@ public final class HelpBot {
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             nav.modalTransitionStyle = .coverVertical
-            viewController.present(nav, animated: true)
+            presenter.present(nav, animated: true)
         } else {
             vc.modalPresentationStyle = .fullScreen
             vc.modalTransitionStyle = .coverVertical
-            viewController.present(vc, animated: true)
+            presenter.present(vc, animated: true)
         }
+    }
+    
+    /// 解析出“可用于 present 的 VC”。极端情况下返回 nil（表示应等待 app active/window ready）。
+    private static func resolvePresenterForPresentation(from vc: UIViewController) -> UIViewController? {
+        // 1) 如果传入的是 alert（或正在 dismiss），优先回退到 presenting
+        var cur: UIViewController? = vc
+        var depth = 0
+        while let c = cur, depth < 12 {
+            if c is UIAlertController {
+                cur = c.presentingViewController
+                depth += 1
+                continue
+            }
+            if c.isBeingDismissed {
+                cur = c.presentingViewController
+                depth += 1
+                continue
+            }
+            // view 不在 window：回退
+            if let v = c.viewIfLoaded, v.window == nil {
+                cur = c.presentingViewController
+                depth += 1
+                continue
+            }
+            return c
+        }
+        
+        // 2) 回退失败：尝试全局 top presenter
+        return ApplicationUtils.getTopViewControllerForPresentation()
     }
 
     private static func shouldShowTitleBar() -> Bool {
