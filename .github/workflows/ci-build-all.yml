@@ -1,0 +1,149 @@
+name: CI - Build & Verify All (Android + iOS)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-build-all-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android (${{ matrix.os }}, JDK${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        java: ["17"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Build HelpBot-release.aar (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :HelpBot:assembleRelease --stacktrace
+
+      - name: Build HelpBot-release.aar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\gradlew.bat :HelpBot:assembleRelease --stacktrace
+
+      - name: Build Android Demo app (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Build Android Demo app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\gradlew.bat :app:assembleDebug --stacktrace
+
+      - name: Build Cocos Bridge AAR (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          ./gradlew -p SDK/Cocos2d/bridge_android_aar :bridge:assembleRelease --stacktrace
+
+      - name: Build Cocos Bridge AAR (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\gradlew.bat -p SDK\Cocos2d\bridge_android_aar :bridge:assembleRelease --stacktrace
+
+      - name: Build Cocos2d Android Demo (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          ./gradlew -p SDK/Cocos2d/proj.android :app:assembleDebug --stacktrace
+
+      - name: Build Cocos2d Android Demo (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\gradlew.bat -p SDK\Cocos2d\proj.android :app:assembleDebug --stacktrace
+
+      - name: Upload Android artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.os }}-jdk${{ matrix.java }}-${{ github.sha }}
+          path: |
+            HelpBot/build/outputs/aar/HelpBot-release.aar
+            SDK/Cocos2d/bridge_android_aar/bridge/build/outputs/aar/HelpBotCocosBridge-release.aar
+            app/build/outputs/apk/debug/*.apk
+            SDK/Cocos2d/proj.android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+  ios:
+    name: iOS (macOS 14)
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode (latest)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Print environment
+        run: |
+          set -euo pipefail
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build HelpBotSDK.xcframework
+        run: |
+          set -euo pipefail
+          chmod +x SDK/iOS/build_sdk.sh
+          bash SDK/iOS/build_sdk.sh
+
+      - name: Build iOS Demo (xcarchive + unsigned ipa)
+        run: |
+          set -euo pipefail
+          chmod +x SDK/iOS/build_demo.sh
+          bash SDK/iOS/build_demo.sh
+
+      - name: Upload iOS artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-macos14-${{ github.sha }}
+          path: |
+            SDK/iOS/build/HelpBotSDK.xcframework.zip
+            SDK/iOS/build/build-report.txt
+            SDK/iOS/build/HelpBotDemo.xcarchive.zip
+            SDK/iOS/build/HelpBotDemo-unsigned.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
