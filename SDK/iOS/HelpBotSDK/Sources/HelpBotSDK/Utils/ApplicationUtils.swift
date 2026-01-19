@@ -135,13 +135,13 @@ public final class ApplicationUtils {
             if let key = candidates.flatMap({ $0.windows }).first(where: { $0.isKeyWindow }) {
                 return key
             }
-            // 2) 兜底：正常层级、可见窗口
+            // 2) 正常层级、可见窗口
             if let normal = candidates
                 .flatMap({ $0.windows })
                 .first(where: { !$0.isHidden && $0.alpha > 0.0 && $0.windowLevel == .normal }) {
                 return normal
             }
-            // 3) 最后兜底：任意窗口
+            // 3) 任意窗口
             return candidates.flatMap({ $0.windows }).first
         } else {
             return UIApplication.shared.keyWindow
@@ -173,7 +173,13 @@ public final class ApplicationUtils {
         var visited = visited
         visited.insert(oid)
         
-        // 1) 常见容器优先展开
+        // 1) present 关系：顶层优先（必须优先沿着 presented 往上走）
+        // 否则在已有 modal 覆盖时会拿到“被覆盖的 VC”，导致后续 present 被系统拒绝（表现为 showConversation 不弹窗）。
+        if let presented = viewController.presentedViewController {
+            return getTopViewController(from: presented, depth: depth + 1, visited: visited)
+        }
+        
+        // 2) 常见容器再展开
         if let nav = viewController as? UINavigationController, let visible = nav.visibleViewController {
             return getTopViewController(from: visible, depth: depth + 1, visited: visited)
         }
@@ -188,12 +194,7 @@ public final class ApplicationUtils {
             return getTopViewController(from: current, depth: depth + 1, visited: visited)
         }
         
-        // 2) present 关系：顶层优先
-        if let presented = viewController.presentedViewController {
-            return getTopViewController(from: presented, depth: depth + 1, visited: visited)
-        }
-        
-        // 3) 自定义容器兜底：尽量取最“上层”的 child
+        // 3) 自定义容器：尽量取最“上层”的 child
         if let child = viewController.children.last {
             return getTopViewController(from: child, depth: depth + 1, visited: visited)
         }
