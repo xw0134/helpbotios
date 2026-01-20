@@ -158,6 +158,36 @@ public final class HelpBot {
         presentConversationNow(from: top)
     }
 
+    // MARK: - State Machine Notes（重要：避免竞态/重复调用）
+    //
+    // install:
+    // - 状态：notInstalled/failed -> installing -> installed/failed
+    // - installing 期间允许 setEventsListener/login/showConversation 入队（只保留最后一次）
+    //
+    // login:
+    // - 状态：notLoggedIn/failed -> loggingIn -> loggedIn/failed
+    // - install=installing 时：login 入队（loginPending），install 完成后由 runPendingRequestsIfNeeded 执行
+    // - 关键约束：SDK 内部“执行登录”必须只走 internal flow（loginInternal + onLoginFinished），禁止再回调到 public login()
+    //
+    // showConversation:
+    // - loginPending/loggingIn：入队并返回 success（对齐 Android：宿主无需写 callback 链）
+    // - 展示触发：loginFinished / didBecomeActive / installFinished（取到可用 presenter 时执行）
+
+    /// 统一的内部登录执行器（public login 与 pending-login 共用）。
+    /// 注意：调用前必须已在锁内将 loginState 置为 .loggingIn，确保不会并发触发多次登录。
+    private static func executeLoginInternalAsync(
+        token: String,
+        completion: ((HelpBotResult<Void>) -> Void)?,
+        reason: String
+    ) {
+        HBlogger.i(tag, "login: start internal (\(reason))", nil)
+        DispatchQueue.global(qos: .utility).async {
+            let result = loginInternal(token)
+            onLoginFinished(result.isSuccess)
+            DispatchQueue.main.async { completion?(result) }
+        }
+    }
+
     // MARK: - Public APIs
 
     /// 初始化日志（可选）
@@ -355,7 +385,8 @@ public final class HelpBot {
             return
         }
 
-        if loginState == .loggingIn {
+        // 兼容：install 阶段的 pending 状态在 install 完成前后可能存在窗口期，统一视为“进行中”
+        if loginState == .loginPending || loginState == .loggingIn {
             operationLock.unlock()
             completion?(.failure(.operationInProgress, "login 正在进行中，请勿重复调用"))
             return
@@ -372,12 +403,7 @@ public final class HelpBot {
         }
         loginState = .loggingIn
         operationLock.unlock()
-
-        DispatchQueue.global(qos: .utility).async {
-            let result = loginInternal(token)
-            onLoginFinished(result.isSuccess)
-            DispatchQueue.main.async { completion?(result) }
-        }
+        executeLoginInternalAsync(token: token, completion: completion, reason: "public")
     }
 
     /// 显示对话窗口（异步，推荐）
@@ -1422,11 +1448,7 @@ public final class HelpBot {
         if let req = loginReq {
             // 关键：这里不能再调用 public login()，否则会被自身的 operationInProgress 检查拦截（SDK 自己卡死）。
             // 对齐 Android：pending-login 进入执行态后应直接走内部登录流程。
-            DispatchQueue.global(qos: .utility).async {
-                let result = loginInternal(req.token)
-                onLoginFinished(result.isSuccess)
-                DispatchQueue.main.async { req.completion?(result) }
-            }
+            executeLoginInternalAsync(token: req.token, completion: req.completion, reason: "pending")
         }
     }
 

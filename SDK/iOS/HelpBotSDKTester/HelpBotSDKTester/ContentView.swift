@@ -34,8 +34,16 @@ struct ContentView: View {
             .disabled(isLoggingIn)
 
             if isLoggingIn {
-                ProgressView("Logging in...")
-                    .padding()
+                // 兼容 iOS 13：ProgressView iOS14+ 才可用
+                Group {
+                    if #available(iOS 14.0, *) {
+                        ProgressView("Logging in...")
+                    } else {
+                        Text("Logging in...")
+                            .font(.caption)
+                    }
+                }
+                .padding()
             }
 
             Text(loginStatus)
