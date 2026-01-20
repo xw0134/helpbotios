@@ -9,58 +9,45 @@ import SwiftUI
 import UIKit
 import HelpBotSDK
 
-extension UIApplication {
-    func hbTopViewController() -> UIViewController? {
-        guard let window = hbKeyWindow() else { return nil }
-        return hbTopViewController(from: window.rootViewController)
-    }
-
-    private func hbTopViewController(from root: UIViewController?) -> UIViewController? {
-        if let nav = root as? UINavigationController {
-            return hbTopViewController(from: nav.visibleViewController)
-        }
-        if let tab = root as? UITabBarController {
-            return hbTopViewController(from: tab.selectedViewController)
-        }
-        if let presented = root?.presentedViewController {
-            return hbTopViewController(from: presented)
-        }
-        return root
-    }
-
-    private func hbKeyWindow() -> UIWindow? {
-        // iOS 13+ 多 Scene 兼容
-        if #available(iOS 13.0, *) {
-            return connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-                .first { $0.isKeyWindow }
-        } else {
-            return keyWindow
-        }
-    }
-}
-
-
 struct ContentView: View {
     @State private var token = ""
-    
+    @State private var loginStatus = ""  // Track login status
+    @State private var isLoggingIn = false  // Track if login is in progress
+
     var body: some View {
         VStack {
-            Button("gen_token", systemImage: "globe", action: genToken).padding()
-            Button("init_login_show", systemImage: "arrow.up", action: initLoginShow)
+            // 兼容 iOS 13 / 旧 Xcode：不使用 Button(systemImage:) 语法
+            Button(action: genToken) {
+                HStack(spacing: 8) {
+                    Image(systemName: "globe")
+                    Text("gen_token")
+                }
+            }
+            .padding()
             
+            Button(action: initLoginShow) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.up")
+                    Text("init_login_show")
+                }
+            }
+            .disabled(isLoggingIn)
+
+            if isLoggingIn {
+                ProgressView("Logging in...")
+                    .padding()
+            }
+
+            Text(loginStatus)
+                .foregroundColor(loginStatus.contains("成功") ? .green : .red)
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .padding()
+
         }.buttonStyle(.bordered)
     }
     
     func initLoginShow() {
-        print("initLoginShow clicked. Current token: '\(self.token)'")
-        
-        if self.token.isEmpty {
-            print("⚠️ Token is empty! Please click 'gen_token' first.")
-            return
-        }
-
         // 初始化
         let configMap: [String: Any] = [
             "fullPrivacyMode": false,
@@ -70,16 +57,36 @@ struct ContentView: View {
             "webViewLoadTimeout": 15_000
         ]
 
-        HelpBot.install(channelId: "appc-20251126114209308-u59kqf625z2i326", domain: "dev-bot-server.yuedongcs.com", configMap: configMap, callback: nil)
+        HelpBot.install(
+            channelId: "appc-20251118211237141-wlpm187bdovx50b",
+            domain: "locojoy.yuedongcs.com",
+            configMap: configMap,
+            callback: nil
+        )
+
+        // 登录（不要求 success 才能 showConversation，对齐 Android：show 由 SDK 入队/自动补执行）
+        isLoggingIn = true
+        loginStatus = "Attempting to log in..."
+
+        HelpBot.login(self.token) { result in
+            DispatchQueue.main.async {
+                self.isLoggingIn = false
+
+                if result.isSuccess {
+                    self.loginStatus = "Login successful!"
+                    print("Login successful!")
+                } else {
+                    let errorMessage = result.errorMessage ?? "Unknown error"
+                    self.loginStatus = "Login failed: \(errorMessage)"
+                    print("Login failed with error code: \(String(describing: result.errorCode)), message: \(errorMessage)")
+                }
+            }
+        }
         
-        // 登陆
-        HelpBot.login(self.token)
-        print("HelpBot.login called")
-        
-        // 对齐 Android：无需宿主获取 topVC，直接调用 showConversation()
+        // 关键：立即 show（无需等待 login success），SDK 会根据 install/login 状态入队并在条件满足后自动展示
         DispatchQueue.main.async {
             let r = HelpBot.showConversation()
-            print("HelpBot.showConversation result: success=\(r.isSuccess) err=\(r.errorMessage ?? "")")
+            print("HelpBot.showConversation queued/immediate: success=\(r.isSuccess) err=\(r.errorMessage ?? \"\")")
         }
     }
     
@@ -136,8 +143,7 @@ struct ContentView: View {
     }
 }
 
+// 兼容旧 Xcode：使用传统 PreviewProvider（不使用 #Preview）
 struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
+    static var previews: some View { ContentView() }
 }

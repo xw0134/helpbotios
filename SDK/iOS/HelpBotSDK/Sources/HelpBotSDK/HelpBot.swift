@@ -395,7 +395,7 @@ public final class HelpBot {
             operationLock.unlock()
             return .failure(.sdkNotInitialized)
         }
-        // login 进行中/排队中：入队等待（对齐 Android）
+        // login 进行中/排队中：入队等待
         if loginState == .loginPending || loginState == .loggingIn || pendingLoginRequest != nil {
             // 排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
@@ -450,7 +450,7 @@ public final class HelpBot {
             operationLock.unlock()
             return .failure(.sdkNotInitialized, "SDK 未初始化：请先调用 HelpBot.install(...)")
         }
-        // login 进行中/排队中：入队等待（对齐 Android）
+        // login 进行中/排队中：入队等待
         if loginState == .loginPending || loginState == .loggingIn || pendingLoginRequest != nil {
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
@@ -1420,7 +1420,13 @@ public final class HelpBot {
         }
 
         if let req = loginReq {
-            login(req.token, completion: req.completion)
+            // 关键：这里不能再调用 public login()，否则会被自身的 operationInProgress 检查拦截（SDK 自己卡死）。
+            // 对齐 Android：pending-login 进入执行态后应直接走内部登录流程。
+            DispatchQueue.global(qos: .utility).async {
+                let result = loginInternal(req.token)
+                onLoginFinished(result.isSuccess)
+                DispatchQueue.main.async { req.completion?(result) }
+            }
         }
     }
 
