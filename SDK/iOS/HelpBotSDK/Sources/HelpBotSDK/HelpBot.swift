@@ -50,7 +50,7 @@ public final class HelpBot {
 
     private static weak var currentConversationController: UIViewController?
     
-    // 生命周期监听：用于“无 VC 调用 showConversation()”时，在窗口可用后自动执行（对齐 Android Context->startActivity 体验）
+    // 生命周期监听在窗口可用后自动执行
     private static var hasRegisteredAppLifecycleObserver: Bool = false
     private static var appLifecycleObserverToken: NSObjectProtocol?
 
@@ -78,7 +78,7 @@ public final class HelpBot {
         assertionFailure("HelpBot 不能被实例化")
     }
     
-    // MARK: - App lifecycle observer (internal)
+    
     
     private static func ensureAppLifecycleObserverInstalled() {
         operationLock.lock()
@@ -141,7 +141,7 @@ public final class HelpBot {
             loggedIn = HelpBotWebViewSession.shared.isAuthenticatedSnapshot(maxAgeMs: 3000)
         }
         if !loggedIn {
-            // 按 Android 行为：未登录不自动弹窗/不强行展示
+            // 未登录不自动弹窗/不强行展示
             return
         }
         
@@ -275,7 +275,7 @@ public final class HelpBot {
                 // 启动健康监管（install 完成后持续运行，直到 destroy）
                 HelpBotWebViewSession.shared.startMonitoring(eventProxy: eventProxy)
                 
-                // 安装生命周期观察者：用于 showConversation() 无 VC 调用场景自动补执行（对齐 Android）
+                // 用于 showConversation() 无 VC 调用场景自动补执行
                 DispatchQueue.main.async {
                     ensureAppLifecycleObserverInstalled()
                     tryRunPendingShowConversationIfPossible(trigger: "installFinished")
@@ -386,7 +386,8 @@ public final class HelpBot {
         operationLock.lock()
         // install 进行中：入队
         if installState == .installing {
-            pendingShowConversationRequest = PendingShowConversationRequest(from: viewController, createdAtMs: nowMs())
+            // 对齐 Android：排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
             return .success()
         }
@@ -395,7 +396,8 @@ public final class HelpBot {
             return .failure(.sdkNotInitialized)
         }
         if loginState == .loginPending || loginState == .loggingIn {
-            pendingShowConversationRequest = PendingShowConversationRequest(from: viewController, createdAtMs: nowMs())
+            // 对齐 Android：排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
             return .success()
         }
@@ -426,7 +428,7 @@ public final class HelpBot {
      */
     @discardableResult
     public static func showConversation() -> HelpBotResult<Void> {
-        // 对齐 Android：showConversation 不要求宿主传入 VC；
+        
         // 若当前无法获取 topVC（例如 App 尚未 active / window 未就绪），则入队等待 didBecomeActive 后补执行。
         ensureAppLifecycleObserverInstalled()
         
@@ -528,7 +530,7 @@ public final class HelpBot {
     // MARK: - FAQ APIs
     
     /**
-     显示 FAQ 主页面（推荐，无需传入 ViewController）。
+     显示 FAQ 主页
      
      - Parameter config: 可选配置（支持 key：tn）
      - Returns: 结果
@@ -542,7 +544,7 @@ public final class HelpBot {
     }
     
     /**
-     显示 FAQ 分组页面（推荐，无需传入 ViewController）。
+     显示 FAQ 分组页
      
      - Parameters:
        - sectionPublishId: 分组 ID（必填）
@@ -561,7 +563,7 @@ public final class HelpBot {
     }
     
     /**
-     显示 FAQ 单页（推荐，无需传入 ViewController）。
+     显示 FAQ 单页
      
      - Parameters:
        - questionPublishId: 问题 ID（必填）
@@ -949,9 +951,15 @@ public final class HelpBot {
         // 隐私模式判定：websiteDataStore 是否为 nonPersistent
         data["nonPersistentDataStore"] = (wv.configuration.websiteDataStore === WKWebsiteDataStore.nonPersistent())
         data["allowsLinkPreview"] = wv.allowsLinkPreview
+        // 兼容性说明：
+        // - `WKWebView.isInspectable` 在较新 SDK（iOS 16.4+ / Xcode 14.3+）才存在
+        // - Xcode 13（Swift 5.6 / iOS 15.x SDK）中该符号完全不存在，即使写 @available 也会编译失败
+        // 因此这里使用编译器条件编译：旧编译链直接跳过，不引用该符号。
+        #if compiler(>=5.8)
         if #available(iOS 16.4, *) {
             data["isInspectable"] = wv.isInspectable
         }
+        #endif
 
         // Bridge 通道约束（不枚举 handler 列表，避免依赖私有 API）
         data["nativeBridgeName"] = HelpBotWebViewHelper.nativeBridgeName
@@ -1345,11 +1353,12 @@ public final class HelpBot {
 
         guard let req = showToRun else { return }
         DispatchQueue.main.async {
-            if let from = req.from {
-                presentConversationNow(from: from)
+            // 说明：排队请求默认不保存宿主 VC（更稳）；但若存在且可用则优先用之
+            if let from = req.from, let p = resolvePresenterForPresentation(from: from) {
+                presentConversationNow(from: p)
                 return
             }
-            // 无 VC：尝试从顶层 VC 展示（对齐 Android 的 Context->startActivity 体验）
+            // 无 VC / VC 不可用：从顶层 presenter 展示（对齐 Android 的“只调 show”体验）
             tryRunPendingShowConversationIfPossible(trigger: "loginFinished")
         }
     }
@@ -1403,9 +1412,9 @@ public final class HelpBot {
             return
         }
         
-        // 选择一个“真正可用于 present 的 presenter”（避免 UIAlertController / dismiss 过渡 / 不在 window）
+        // 选择一个真正可用于 present 的 presenter（避免 UIAlertController / dismiss 过渡 / 不在 window）
         guard let presenter = resolvePresenterForPresentation(from: viewController) else {
-            // presenter 不可用：入队等待 app active 后重试（对齐 Android：尽量保证最终可展示）
+            // presenter 不可用：入队等待 app active 后重试
             ensureAppLifecycleObserverInstalled()
             operationLock.lock()
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
@@ -1414,12 +1423,11 @@ public final class HelpBot {
             return
         }
         
-        // 对齐 Android：showConversation 时尝试上报系统信息（失败不影响展示）
+        // showConversation 时尝试上报系统信息（失败不影响展示）
         _ = reportSystemInfoToServer()
 
         let showTitleBar = shouldShowTitleBar()
         let vc = HelpBotViewController(showTitleBar: showTitleBar)
-        currentConversationController = vc
 
        
         // 说明：viewController 可能本身就是 UINavigationController/UITabBarController；因此必须做一次更稳的解析。
@@ -1428,6 +1436,7 @@ public final class HelpBot {
            !hostNav.isBeingDismissed {
             HBlogger.i(tag, "show", nil)
             hostNav.pushViewController(vc, animated: true)
+            markConversationShownIfVisible(conversationController: vc, presenter: hostNav, reason: "push")
             return
         }
 
@@ -1437,17 +1446,17 @@ public final class HelpBot {
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             nav.modalTransitionStyle = .coverVertical
-            presenter.present(nav, animated: true)
+            safePresent(presenter: presenter, controllerToPresent: nav, conversationController: vc, reason: "present_nav")
         } else {
             vc.modalPresentationStyle = .fullScreen
             vc.modalTransitionStyle = .coverVertical
-            presenter.present(vc, animated: true)
+            safePresent(presenter: presenter, controllerToPresent: vc, conversationController: vc, reason: "present_vc")
         }
     }
     
-    /// 解析出“可用于 present 的 VC”。极端情况下返回 nil（表示应等待 app active/window ready）。
+    /// 解析出可用于 present 的 VC。极端情况下返回 nil（表示应等待 app active/window ready）。
     private static func resolvePresenterForPresentation(from vc: UIViewController) -> UIViewController? {
-        // 1) 如果传入的是 alert（或正在 dismiss），优先回退到 presenting
+        // 如果传入的是 alert（或正在 dismiss），优先回退到 presenting
         var cur: UIViewController? = vc
         var depth = 0
         while let c = cur, depth < 12 {
@@ -1470,8 +1479,102 @@ public final class HelpBot {
             return c
         }
         
-        // 2) 回退失败：尝试全局 top presenter
+        //  回退失败：尝试全局 top presenter
         return ApplicationUtils.getTopViewControllerForPresentation()
+    }
+    
+    /// 只有在“真正展示成功”后才标记 currentConversationController，避免 present/push 失败后永久卡死。
+    private static func markConversationShownIfVisible(
+        conversationController: UIViewController,
+        presenter: UIViewController,
+        reason: String
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let isVisible: Bool = {
+                if let nav = presenter as? UINavigationController {
+                    return nav.viewControllers.contains(where: { $0 === conversationController }) && conversationController.viewIfLoaded?.window != nil
+                }
+                if conversationController.presentingViewController != nil { return true }
+                if let v = conversationController.viewIfLoaded, v.window != nil { return true }
+                return false
+            }()
+            
+            if isVisible {
+                operationLock.lock()
+                currentConversationController = conversationController
+                operationLock.unlock()
+                return
+            }
+            
+            // 未可见：入队重试（对齐 Android：尽量保证最终可展示）
+            operationLock.lock()
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            ensureAppLifecycleObserverInstalled()
+            HBlogger.w(tag, "showConversation(\(reason)): 未检测到可见展示，已入队重试", nil)
+        }
+    }
+    
+    /// 安全 present：处理“过渡中/正在 dismiss/不在 window”导致的系统拒绝，并自动重试/入队。
+    private static func safePresent(
+        presenter: UIViewController,
+        controllerToPresent: UIViewController,
+        conversationController: UIViewController,
+        reason: String,
+        attempt: Int = 0
+    ) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async {
+                safePresent(
+                    presenter: presenter,
+                    controllerToPresent: controllerToPresent,
+                    conversationController: conversationController,
+                    reason: reason,
+                    attempt: attempt
+                )
+            }
+            return
+        }
+        
+        if attempt > 6 {
+            operationLock.lock()
+            pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
+            operationLock.unlock()
+            ensureAppLifecycleObserverInstalled()
+            HBlogger.w(tag, "safePresent(\(reason)): 超过重试次数，已入队等待重试", nil)
+            return
+        }
+        
+        // presenter 不在 window / 正在 dismiss / 正在 present：延迟再试
+        if presenter.isBeingDismissed || presenter.isBeingPresented || presenter.transitionCoordinator != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                safePresent(
+                    presenter: presenter,
+                    controllerToPresent: controllerToPresent,
+                    conversationController: conversationController,
+                    reason: reason,
+                    attempt: attempt + 1
+                )
+            }
+            return
+        }
+        if let v = presenter.viewIfLoaded, v.window == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                let p = ApplicationUtils.getTopViewControllerForPresentation() ?? presenter
+                safePresent(
+                    presenter: p,
+                    controllerToPresent: controllerToPresent,
+                    conversationController: conversationController,
+                    reason: reason,
+                    attempt: attempt + 1
+                )
+            }
+            return
+        }
+        
+        presenter.present(controllerToPresent, animated: true) {
+            markConversationShownIfVisible(conversationController: conversationController, presenter: presenter, reason: reason)
+        }
     }
 
     private static func shouldShowTitleBar() -> Bool {
