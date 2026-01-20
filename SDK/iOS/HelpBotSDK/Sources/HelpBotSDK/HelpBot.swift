@@ -386,7 +386,7 @@ public final class HelpBot {
         operationLock.lock()
         // install 进行中：入队
         if installState == .installing {
-            // 对齐 Android：排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
+            //排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
             return .success()
@@ -395,8 +395,9 @@ public final class HelpBot {
             operationLock.unlock()
             return .failure(.sdkNotInitialized)
         }
-        if loginState == .loginPending || loginState == .loggingIn {
-            // 对齐 Android：排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
+        // login 进行中/排队中：入队等待（对齐 Android）
+        if loginState == .loginPending || loginState == .loggingIn || pendingLoginRequest != nil {
+            // 排队阶段不强依赖宿主传入的 VC（未来可能不在 window/正在过渡导致无法 present）
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
             return .success()
@@ -449,7 +450,8 @@ public final class HelpBot {
             operationLock.unlock()
             return .failure(.sdkNotInitialized, "SDK 未初始化：请先调用 HelpBot.install(...)")
         }
-        if loginState == .loginPending || loginState == .loggingIn {
+        // login 进行中/排队中：入队等待（对齐 Android）
+        if loginState == .loginPending || loginState == .loggingIn || pendingLoginRequest != nil {
             pendingShowConversationRequest = PendingShowConversationRequest(from: nil, createdAtMs: nowMs())
             operationLock.unlock()
             return .success()
@@ -1267,16 +1269,28 @@ public final class HelpBot {
         let waiter = HelpBotWebViewSession.shared.beginLoginWait()
         var triggered = false
         if HelpBotWebViewSession.shared.awaitWebSdkInitialized(timeoutMs: defaultWebSdkInitWaitTimeoutMs),
+           HelpBotWebViewSession.shared.awaitWebSdkBootstrapReady(timeoutMs: defaultWebSdkBootstrapWaitTimeoutMs),
            let wv = HelpBotWebViewSession.shared.webView {
+            let latch = HBCountDownLatch(1)
             DispatchQueue.main.async {
-                wv.evaluateJavaScript(HelpBotJsCommand.buildSetTokenAndConnect(token), completionHandler: nil)
+                wv.evaluateJavaScript(HelpBotJsCommand.buildSetTokenAndConnect(token)) { _, error in
+                    if let error = error {
+                        HBlogger.w(tag, "login: setTokenAndConnect evaluate 失败: \(error.localizedDescription)", error)
+                    }
+                    latch.countDown()
+                }
             }
+            // 等待 JS 注入完成（避免极端情况下 evaluate 被延迟，导致后续“已超时但其实没执行过 setToken”）
+            _ = latch.await(timeoutMs: 1500)
             triggered = true
         }
 
         // 兜底：若未能触发，返回失败（iOS 侧目前只支持“已初始化后触发”）
         if !triggered {
-            return .failure(.webViewDestroyed, "WebView 未初始化")
+            // 更可诊断：区分 init/bootstrap 未就绪 vs webView 已销毁
+            let health = HelpBotWebViewSession.shared.getHealthSnapshot()
+            let hint = HelpBotJsonUtils.toJsonString(health) ?? ""
+            return .failure(.webViewDestroyed, "WebView 未初始化或通道未就绪（health=\(hint)）")
         }
 
         let deadline = nowMs() + Int64(defaultWebSdkLoginWaitTimeoutMs)
@@ -1325,7 +1339,10 @@ public final class HelpBot {
             }
         }
 
-        return .failure(.operationTimeout, "等待 WebSDK 登录确认超时")
+        // 登录超时：输出更多诊断信息（不包含 token）
+        let health = HelpBotWebViewSession.shared.getHealthSnapshot()
+        let hint = HelpBotJsonUtils.toJsonString(health) ?? ""
+        return .failure(.operationTimeout, "等待 WebSDK 登录确认超时（health=\(hint)）")
     }
 
     private static func onLoginFinished(_ success: Bool) {
@@ -1358,7 +1375,7 @@ public final class HelpBot {
                 presentConversationNow(from: p)
                 return
             }
-            // 无 VC / VC 不可用：从顶层 presenter 展示（对齐 Android 的“只调 show”体验）
+            // 无 VC / VC 不可用：从顶层 presenter 展示
             tryRunPendingShowConversationIfPossible(trigger: "loginFinished")
         }
     }
@@ -1387,6 +1404,8 @@ public final class HelpBot {
         if let p = pendingLoginRequest, now - p.createdAtMs <= pendingRequestTtlMs {
             loginReq = p
             pendingLoginRequest = nil
+            // 关键：必须先切到 loggingIn，避免宿主在这段窗口期调用 showConversation 被误判为“未登录”
+            // 对齐 Android：login 进行中时 showConversation 应入队并返回 success。
             loginState = .loggingIn
         } else {
             pendingLoginRequest = nil
