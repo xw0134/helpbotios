@@ -1388,21 +1388,48 @@ public final class HelpBot {
             pendingShowConversationRequest = nil
         }
 
+        // 注意：这里不能提前清理 pendingShowConversationRequest。
+        // 否则在 loginFinished 时刻 presenter 尚不可用（topVC=nil/正在过渡）会导致 show 请求被“吃掉”，之后也不会再触发补偿展示。
         if success, installState == .installed, let pending = pendingShowConversationRequest {
             showToRun = pending
-            pendingShowConversationRequest = nil
         }
         operationLock.unlock()
 
         guard let req = showToRun else { return }
         DispatchQueue.main.async {
-            // 说明：排队请求默认不保存宿主 VC（更稳）；但若存在且可用则优先用之
+            // 已展示：直接 open，并消费 pending
+            if currentConversationController != nil {
+                operationLock.lock()
+                pendingShowConversationRequest = nil
+                operationLock.unlock()
+                HelpBotWebViewSession.shared.openWhenReady()
+                return
+            }
+
+            // 1) 优先使用请求携带的 presenter（通常为 nil，我们默认不强依赖宿主传入）
             if let from = req.from, let p = resolvePresenterForPresentation(from: from) {
+                operationLock.lock()
+                pendingShowConversationRequest = nil
+                operationLock.unlock()
                 presentConversationNow(from: p)
                 return
             }
-            // 无 VC / VC 不可用：从顶层 presenter 展示
-            tryRunPendingShowConversationIfPossible(trigger: "loginFinished")
+
+            // 2) 否则尝试从顶层 presenter 展示
+            if let top = ApplicationUtils.getTopViewControllerForPresentation() {
+                operationLock.lock()
+                pendingShowConversationRequest = nil
+                operationLock.unlock()
+                presentConversationNow(from: top)
+                return
+            }
+
+            // 3) presenter 暂不可用：保留 pending，等待 didBecomeActive 或短延迟重试
+            ensureAppLifecycleObserverInstalled()
+            HBlogger.d(tag, "onLoginFinished: presenter not ready, keep pending and retry", nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                tryRunPendingShowConversationIfPossible(trigger: "loginFinishedRetry")
+            }
         }
     }
 
